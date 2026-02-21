@@ -252,91 +252,113 @@ func is_gap(pos: Vector2i) -> bool:
 
 
 ## Ensure all walkable tiles are reachable from robot spawns.
-## Uses flood fill from the first robot spawn. Unreachable walkable tiles
-## are converted to gaps. Walls blocking critical objectives get doorways.
+## Finds disconnected regions and carves paths between them.
 func _ensure_connectivity() -> void:
 	if robot_spawns.is_empty():
 		return
 
-	# Collect all critical positions that MUST be reachable
-	var critical_positions: Array[Vector2i] = []
-	critical_positions.append(exit_position)
-	for kp: Vector2i in key_positions:
-		critical_positions.append(kp)
-	for sp: Vector2i in robot_spawns:
-		critical_positions.append(sp)
-
-	# Flood fill from first robot spawn
-	var start: Vector2i = robot_spawns[0]
-	var visited: Dictionary = {}  # Vector2i -> bool
-	var queue: Array[Vector2i] = [start]
-	visited[start] = true
-
-	while not queue.is_empty():
-		var current: Vector2i = queue.pop_front()
-		var neighbors: Array[Vector2i] = [
-			Vector2i(current.x + 1, current.y),
-			Vector2i(current.x - 1, current.y),
-			Vector2i(current.x, current.y + 1),
-			Vector2i(current.x, current.y - 1),
-		]
-		for neighbor: Vector2i in neighbors:
-			if visited.has(neighbor):
-				continue
-			if neighbor.x < 0 or neighbor.x >= width:
-				continue
-			if neighbor.y < 0 or neighbor.y >= height:
-				continue
-			# Can walk on solid floor with no wall (or special tiles like exit/key/door)
-			if floor_grid[neighbor.y][neighbor.x] == FloorCell.GAP:
-				continue
-			if wall_grid[neighbor.y][neighbor.x] == WallCell.WALL:
-				continue
-			visited[neighbor] = true
-			queue.append(neighbor)
-
-	# Check if critical positions are reachable; if not, carve paths
-	for critical_pos: Vector2i in critical_positions:
-		if visited.has(critical_pos):
-			continue
-		# Carve a path from critical_pos toward the nearest visited tile
-		_carve_path_to_visited(critical_pos, visited)
-
-	# Convert unreachable walkable tiles to gaps
+	# Find all walkable tiles
+	var all_walkable: Dictionary = {}  # Vector2i -> bool
 	for y: int in range(height):
 		for x: int in range(width):
-			var pos := Vector2i(x, y)
-			if floor_grid[y][x] == FloorCell.SOLID and wall_grid[y][x] == WallCell.EMPTY:
-				if not visited.has(pos):
-					floor_grid[y][x] = FloorCell.GAP
+			if floor_grid[y][x] == FloorCell.SOLID and wall_grid[y][x] != WallCell.WALL:
+				all_walkable[Vector2i(x, y)] = true
+
+	if all_walkable.is_empty():
+		return
+
+	# Find connected regions via flood fill
+	var assigned: Dictionary = {}  # Vector2i -> region_id
+	var regions: Array = []  # Array of Array[Vector2i]
+
+	for tile: Vector2i in all_walkable.keys():
+		if assigned.has(tile):
+			continue
+		# BFS to find this region
+		var region: Array[Vector2i] = []
+		var queue: Array[Vector2i] = [tile]
+		assigned[tile] = regions.size()
+		while not queue.is_empty():
+			var current: Vector2i = queue.pop_front()
+			region.append(current)
+			var neighbors: Array[Vector2i] = [
+				Vector2i(current.x + 1, current.y),
+				Vector2i(current.x - 1, current.y),
+				Vector2i(current.x, current.y + 1),
+				Vector2i(current.x, current.y - 1),
+			]
+			for neighbor: Vector2i in neighbors:
+				if all_walkable.has(neighbor) and not assigned.has(neighbor):
+					assigned[neighbor] = regions.size()
+					queue.append(neighbor)
+		regions.append(region)
+
+	if regions.size() <= 1:
+		return  # Already fully connected
+
+	# Find the main region (the one containing robot spawn 0)
+	var main_region_id: int = 0
+	if assigned.has(robot_spawns[0]):
+		main_region_id = assigned[robot_spawns[0]]
+
+	# Merge all other regions into the main region by carving paths
+	var main_tiles: Dictionary = {}  # Quick lookup for main region tiles
+	for tile: Vector2i in regions[main_region_id]:
+		main_tiles[tile] = true
+
+	for region_id: int in range(regions.size()):
+		if region_id == main_region_id:
+			continue
+		var region: Array = regions[region_id]
+		# Find the closest pair of tiles between this region and main region
+		var best_from: Vector2i = region[0]
+		var best_to: Vector2i = regions[main_region_id][0]
+		var best_dist: float = INF
+		# Sample up to 20 tiles from each region for performance
+		var sample_a: Array = region.slice(0, mini(20, region.size()))
+		var sample_b: Array = regions[main_region_id].slice(0, mini(20, regions[main_region_id].size()))
+		for a: Vector2i in sample_a:
+			for b: Vector2i in sample_b:
+				var dist: float = absf(a.x - b.x) + absf(a.y - b.y)
+				if dist < best_dist:
+					best_dist = dist
+					best_from = a
+					best_to = b
+
+		# Carve a path from best_from to best_to
+		_carve_corridor(best_from, best_to)
+		# Add the connected tiles to main region for next merges
+		for tile: Vector2i in region:
+			main_tiles[tile] = true
+		regions[main_region_id].append_array(region)
+
+	# Explicitly ensure critical positions are connected to spawn 0
+	var origin: Vector2i = robot_spawns[0]
+	# Carve to exit
+	_carve_corridor(origin, exit_position)
+	# Carve to keys
+	for kp: Vector2i in key_positions:
+		_carve_corridor(origin, kp)
+	# Carve to all robot spawns
+	for sp: Vector2i in robot_spawns:
+		_carve_corridor(origin, sp)
 
 
-## Carve a straight-line path from an unreachable position toward visited tiles.
-func _carve_path_to_visited(from: Vector2i, visited: Dictionary) -> void:
-	# Find the nearest visited tile
-	var nearest: Vector2i = from
-	var nearest_dist: float = INF
-	for visited_pos: Vector2i in visited.keys():
-		var dist: float = (visited_pos - from).length()
-		if dist < nearest_dist:
-			nearest_dist = dist
-			nearest = visited_pos
-
-	# Walk from 'from' toward 'nearest', removing walls along the way
+## Carve a corridor between two points, clearing walls and filling gaps.
+func _carve_corridor(from: Vector2i, to: Vector2i) -> void:
 	var current: Vector2i = from
 	var safety: int = 0
-	while current != nearest and safety < 100:
+	while current != to and safety < 200:
 		safety += 1
-		# Move one step toward target
-		var dx: int = signi(nearest.x - current.x)
-		var dy: int = signi(nearest.y - current.y)
+		var dx: int = signi(to.x - current.x)
+		var dy: int = signi(to.y - current.y)
 		# Prefer the axis with the larger distance
-		if absi(nearest.x - current.x) >= absi(nearest.y - current.y):
+		if absi(to.x - current.x) >= absi(to.y - current.y):
 			current.x += dx
 		else:
 			current.y += dy
 
-		# Ensure in bounds
+		# Stay in bounds (not on perimeter)
 		if current.x < 1 or current.x >= width - 1:
 			continue
 		if current.y < 1 or current.y >= height - 1:
@@ -349,4 +371,3 @@ func _carve_path_to_visited(from: Vector2i, visited: Dictionary) -> void:
 		if floor_grid[current.y][current.x] == FloorCell.GAP:
 			floor_grid[current.y][current.x] = FloorCell.SOLID
 
-		visited[current] = true

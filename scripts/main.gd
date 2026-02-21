@@ -87,11 +87,7 @@ func _initialize_game() -> void:
 
 func _on_robot_selected(robot_id: int) -> void:
 	_selected_robot_id = robot_id
-	# Snap camera to selected robot
-	if robot_id < GameManager.robots.size():
-		var robot: Robot = GameManager.robots[robot_id]
-		if robot.is_alive:
-			_camera.center_on(_level_renderer.grid_to_world(robot.grid_pos))
+	# Camera will smoothly pan via follow_target in _process
 
 
 func _process(delta: float) -> void:
