@@ -2,9 +2,11 @@
 ## Wires together level generation, rendering, camera, HUD, and game flow.
 extends Node3D
 
+const HUD_SCRIPT = preload("res://scripts/hud.gd")
+
 var _level_renderer: Node3D
 var _camera: Camera3D
-var _hud: HUD
+var _hud: Node
 var _fog: Node3D
 var _vfx: Node3D
 var _light: DirectionalLight3D
@@ -41,7 +43,7 @@ func _ready() -> void:
 	add_child(_vfx)
 
 	# Create HUD
-	_hud = HUD.new()
+	_hud = HUD_SCRIPT.new()
 	_hud.name = "HUD"
 	add_child(_hud)
 
