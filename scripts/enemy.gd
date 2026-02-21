@@ -11,6 +11,7 @@ var grid_pos: Vector2i = Vector2i.ZERO
 var facing: Robot.Direction = Robot.Direction.NORTH
 var is_alive: bool = true
 var is_disabled: bool = false  # EMP'd
+var is_telegraph_visible: bool = false
 
 ## Planned instructions for the current round (3 rounds)
 var intent_buffer: Array[Instruction.Type] = []
@@ -212,9 +213,8 @@ func _update_intent_visuals() -> void:
 	_intent_line.visible = false
 	_intent_sphere.visible = false
 	
-	# Only show if planning and has intent
-	if not visible or intent_buffer.is_empty(): return
-	if GameManager.current_state != GameManager.GameState.PLANNING and GameManager.current_state != GameManager.GameState.COUNTDOWN:
+	# Only show if telegraph is active
+	if not visible or intent_buffer.is_empty() or not is_telegraph_visible:
 		return
 	
 	# For now, just telegraph Laser Fire if it's anywhere in the intent

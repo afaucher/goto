@@ -102,6 +102,8 @@ func _on_robot_selected(robot_id: int) -> void:
 
 
 func _process(delta: float) -> void:
+	if GameManager == null:
+		return
 	# Camera follows selected robot smoothly
 	if _selected_robot_id < GameManager.robots.size():
 		var robot: Robot = GameManager.robots[_selected_robot_id]

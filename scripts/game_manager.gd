@@ -96,10 +96,10 @@ func _start_planning_phase() -> void:
 	# Update entity world positions
 	_sync_entity_positions()
 	
-	# Plan enemy intents for this round
 	for enemy: Enemy in enemies:
 		if enemy.is_alive:
 			enemy.plan_intent(robots, level)
+			enemy.is_telegraph_visible = true
 
 
 func start_countdown() -> void:
@@ -134,14 +134,20 @@ func _start_execution() -> void:
 	_execution_timer = 0.0
 
 
-func _process_execution(delta: float) -> void:
-	_execution_timer += delta
-	if _execution_timer >= _execution_delay:
-		_execution_timer = 0.0
-		var has_more: bool = turn_engine.execute_step()
-		_sync_entity_positions()
-		if not has_more:
-			pass  # round_complete signal handles transition
+func _process_execution(_delta: float) -> void:
+	if _execution_timer > 0:
+		_execution_timer -= _delta
+		return
+
+	# Hide enemy telegraphs when execution starts
+	for enemy: Enemy in enemies:
+		enemy.is_telegraph_visible = false
+
+	_execution_timer = _execution_delay
+	var has_more: bool = turn_engine.execute_step()
+	_sync_entity_positions()
+	if not has_more:
+		pass  # round_complete signal handles transition
 
 
 func _on_round_complete() -> void:
