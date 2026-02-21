@@ -1,5 +1,7 @@
 # GOTO
 
+![GOTO Gameplay Screenshot](docs/image.png)
+
 **GOTO** is a tactical, programmable movement game where you control a team of robots in a dangerous, grid-based arena.
 
 ## 🎮 Gameplay

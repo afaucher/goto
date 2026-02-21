@@ -168,12 +168,12 @@ func _build_ui() -> void:
 	bp_style.bg_color = BG_COLOR
 	bp_style.content_margin_left = 12
 	bp_style.content_margin_right = 12
-	bp_style.content_margin_top = 8
-	bp_style.content_margin_bottom = 8
+	bp_style.content_margin_top = 4
+	bp_style.content_margin_bottom = 4
 	bottom_panel.add_theme_stylebox_override("panel", bp_style)
 	bottom_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	# Explicit height from bottom
-	bottom_panel.offset_top = -225
+	bottom_panel.offset_top = -300
 	bottom_panel.offset_bottom = 0
 	root.add_child(bottom_panel)
 
@@ -233,7 +233,7 @@ func _build_ui() -> void:
 	pool_style.content_margin_top = 4
 	pool_style.content_margin_bottom = 4
 	pool_panel.add_theme_stylebox_override("panel", pool_style)
-	pool_panel.custom_minimum_size = Vector2(0, 48)
+	pool_panel.custom_minimum_size = Vector2(0, 40)
 	pool_section.add_child(pool_panel)
 
 	var pool_scroll := ScrollContainer.new()
@@ -249,7 +249,7 @@ func _build_ui() -> void:
 	var execution_scroll := ScrollContainer.new()
 	execution_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	execution_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	execution_scroll.custom_minimum_size = Vector2(0, 145)
+	execution_scroll.custom_minimum_size = Vector2(0, 160)
 	bottom_vbox.add_child(execution_scroll)
 
 	_execution_panels_container = HBoxContainer.new()
@@ -330,7 +330,7 @@ func _create_robot_panel(robot_id: int) -> PanelContainer:
 	var slot_buttons: Array = []
 	for slot_idx: int in range(Robot.MAX_HP):
 		var slot_btn := Button.new()
-		slot_btn.custom_minimum_size = Vector2(34, 34)
+		slot_btn.custom_minimum_size = Vector2(30, 30)
 		slot_btn.text = ""
 		slot_btn.add_theme_font_size_override("font_size", 8)
 		var slot_style := StyleBoxFlat.new()
@@ -354,7 +354,7 @@ func _create_robot_panel(robot_id: int) -> PanelContainer:
 
 func _create_enemy_panel(enemy: Enemy, order_index: int) -> PanelContainer:
 	var panel_bg := PanelContainer.new()
-	panel_bg.custom_minimum_size = Vector2(100, 0)
+	panel_bg.custom_minimum_size = Vector2(60, 0)
 	var bg_style := StyleBoxFlat.new()
 	bg_style.bg_color = Color(0.14, 0.1, 0.1)
 	bg_style.border_color = Color(0.8, 0.2, 0.2, 0.6)
@@ -381,19 +381,12 @@ func _create_enemy_panel(enemy: Enemy, order_index: int) -> PanelContainer:
 	var header_btn := Button.new()
 	header_btn.name = "Button"
 	header_btn.text = "ENEMY %d" % (order_index + 1)
-	header_btn.add_theme_font_size_override("font_size", 12)
+	header_btn.add_theme_font_size_override("font_size", 10)
 	header_btn.add_theme_color_override("font_color", Color(0.9, 0.4, 0.4))
-	header_btn.custom_minimum_size = Vector2(80, 24)
+	header_btn.custom_minimum_size = Vector2(50, 20)
 	header_btn.flat = true
 	header_btn.pressed.connect(_on_entity_header_pressed.bind(enemy))
 	inner_vbox.add_child(header_btn)
-
-	# HP or Status (Minimal)
-	var hp_label := Label.new()
-	hp_label.text = "ENEMY"
-	hp_label.add_theme_font_size_override("font_size", 10)
-	hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	inner_vbox.add_child(hp_label)
 
 	# Instruction slots (STAKED VERTICALLY for narrowness)
 	var slots_vbox := VBoxContainer.new()
@@ -403,13 +396,13 @@ func _create_enemy_panel(enemy: Enemy, order_index: int) -> PanelContainer:
 
 	for j in range(enemy.intent_buffer.size()):
 		var slot_panel := Panel.new()
-		slot_panel.custom_minimum_size = Vector2(0, 24)
+		slot_panel.custom_minimum_size = Vector2(30, 30)
+		slot_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		var slot_style := StyleBoxFlat.new()
 		var type := enemy.intent_buffer[j]
-		if type == Instruction.Type.WAIT:
-			slot_style.bg_color = Color(0.2, 0.2, 0.2)
-		else:
-			slot_style.bg_color = Color(0.7, 0.2, 0.2)
+		
+		# User requested grey squares like the player (SLOT_EMPTY)
+		slot_style.bg_color = SLOT_EMPTY
 		slot_style.corner_radius_top_left = 3
 		slot_style.corner_radius_top_right = 3
 		slot_style.corner_radius_bottom_left = 3
