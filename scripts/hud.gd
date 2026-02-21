@@ -173,7 +173,7 @@ func _build_ui() -> void:
 	bottom_panel.add_theme_stylebox_override("panel", bp_style)
 	bottom_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	# Explicit height from bottom
-	bottom_panel.offset_top = -240
+	bottom_panel.offset_top = -225
 	bottom_panel.offset_bottom = 0
 	root.add_child(bottom_panel)
 
@@ -249,7 +249,7 @@ func _build_ui() -> void:
 	var execution_scroll := ScrollContainer.new()
 	execution_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	execution_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	execution_scroll.custom_minimum_size = Vector2(0, 160)
+	execution_scroll.custom_minimum_size = Vector2(0, 145)
 	bottom_vbox.add_child(execution_scroll)
 
 	_execution_panels_container = HBoxContainer.new()
