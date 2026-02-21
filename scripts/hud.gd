@@ -130,7 +130,7 @@ func _build_ui() -> void:
 	_obj_door_label = Label.new()
 	_obj_door_label.text = "○  Unlock the door"
 	_obj_door_label.add_theme_font_size_override("font_size", 13)
-	_obj_door_label.add_theme_color_override("font_color", Color(0.6, 0.35, 0.15))
+	_obj_door_label.add_theme_color_override("font_color", Color(0.6, 0.3, 0.1))
 	obj_vbox.add_child(_obj_door_label)
 
 	_obj_exit_label = Label.new()
@@ -614,7 +614,7 @@ func _update_objectives() -> void:
 		_obj_door_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 	else:
 		_obj_door_label.text = "○  Unlock the door"
-		_obj_door_label.add_theme_color_override("font_color", Color(0.6, 0.35, 0.15))
+		_obj_door_label.add_theme_color_override("font_color", Color(0.6, 0.3, 0.1))
 
 	# Exit objective
 	if _game_manager.current_state == GameManager.GameState.VICTORY:

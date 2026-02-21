@@ -34,6 +34,7 @@ func generate(p_width: int = 16, p_height: int = 16, p_seed: int = -1) -> void:
 	_place_objectives()
 	_place_robot_spawns()
 	_place_enemies()
+	_ensure_connectivity()
 
 
 func _init_grids() -> void:
@@ -248,3 +249,104 @@ func is_gap(pos: Vector2i) -> bool:
 	if pos.x < 0 or pos.x >= width or pos.y < 0 or pos.y >= height:
 		return true  # Out of bounds = gap
 	return floor_grid[pos.y][pos.x] == FloorCell.GAP
+
+
+## Ensure all walkable tiles are reachable from robot spawns.
+## Uses flood fill from the first robot spawn. Unreachable walkable tiles
+## are converted to gaps. Walls blocking critical objectives get doorways.
+func _ensure_connectivity() -> void:
+	if robot_spawns.is_empty():
+		return
+
+	# Collect all critical positions that MUST be reachable
+	var critical_positions: Array[Vector2i] = []
+	critical_positions.append(exit_position)
+	for kp: Vector2i in key_positions:
+		critical_positions.append(kp)
+	for sp: Vector2i in robot_spawns:
+		critical_positions.append(sp)
+
+	# Flood fill from first robot spawn
+	var start: Vector2i = robot_spawns[0]
+	var visited: Dictionary = {}  # Vector2i -> bool
+	var queue: Array[Vector2i] = [start]
+	visited[start] = true
+
+	while not queue.is_empty():
+		var current: Vector2i = queue.pop_front()
+		var neighbors: Array[Vector2i] = [
+			Vector2i(current.x + 1, current.y),
+			Vector2i(current.x - 1, current.y),
+			Vector2i(current.x, current.y + 1),
+			Vector2i(current.x, current.y - 1),
+		]
+		for neighbor: Vector2i in neighbors:
+			if visited.has(neighbor):
+				continue
+			if neighbor.x < 0 or neighbor.x >= width:
+				continue
+			if neighbor.y < 0 or neighbor.y >= height:
+				continue
+			# Can walk on solid floor with no wall (or special tiles like exit/key/door)
+			if floor_grid[neighbor.y][neighbor.x] == FloorCell.GAP:
+				continue
+			if wall_grid[neighbor.y][neighbor.x] == WallCell.WALL:
+				continue
+			visited[neighbor] = true
+			queue.append(neighbor)
+
+	# Check if critical positions are reachable; if not, carve paths
+	for critical_pos: Vector2i in critical_positions:
+		if visited.has(critical_pos):
+			continue
+		# Carve a path from critical_pos toward the nearest visited tile
+		_carve_path_to_visited(critical_pos, visited)
+
+	# Convert unreachable walkable tiles to gaps
+	for y: int in range(height):
+		for x: int in range(width):
+			var pos := Vector2i(x, y)
+			if floor_grid[y][x] == FloorCell.SOLID and wall_grid[y][x] == WallCell.EMPTY:
+				if not visited.has(pos):
+					floor_grid[y][x] = FloorCell.GAP
+
+
+## Carve a straight-line path from an unreachable position toward visited tiles.
+func _carve_path_to_visited(from: Vector2i, visited: Dictionary) -> void:
+	# Find the nearest visited tile
+	var nearest: Vector2i = from
+	var nearest_dist: float = INF
+	for visited_pos: Vector2i in visited.keys():
+		var dist: float = (visited_pos - from).length()
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = visited_pos
+
+	# Walk from 'from' toward 'nearest', removing walls along the way
+	var current: Vector2i = from
+	var safety: int = 0
+	while current != nearest and safety < 100:
+		safety += 1
+		# Move one step toward target
+		var dx: int = signi(nearest.x - current.x)
+		var dy: int = signi(nearest.y - current.y)
+		# Prefer the axis with the larger distance
+		if absi(nearest.x - current.x) >= absi(nearest.y - current.y):
+			current.x += dx
+		else:
+			current.y += dy
+
+		# Ensure in bounds
+		if current.x < 1 or current.x >= width - 1:
+			continue
+		if current.y < 1 or current.y >= height - 1:
+			continue
+
+		# Clear wall if blocking
+		if wall_grid[current.y][current.x] == WallCell.WALL:
+			wall_grid[current.y][current.x] = WallCell.EMPTY
+		# Ensure solid floor
+		if floor_grid[current.y][current.x] == FloorCell.GAP:
+			floor_grid[current.y][current.x] = FloorCell.SOLID
+
+		visited[current] = true
