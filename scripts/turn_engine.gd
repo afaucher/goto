@@ -14,7 +14,9 @@ var _level: LevelGenerator
 var _robots: Array[Robot] = []
 var _enemies: Array[Enemy] = []
 var _turn_order: Array = []  # Array of Node3D (Robot or Enemy)
-var _current_step: int = 0
+var _current_round: int = 0  # 0, 1, 2 (3 rounds total)
+var _current_entity_idx: int = 0  # Index within turn order for current round
+const MAX_ROUNDS: int = 3
 
 
 func setup(level: LevelGenerator, robots: Array[Robot], enemies: Array[Enemy]) -> void:
@@ -35,7 +37,8 @@ func build_turn_order() -> Array:
 			_turn_order.append(enemy)
 	# Shuffle
 	_turn_order.shuffle()
-	_current_step = 0
+	_current_round = 0
+	_current_entity_idx = 0
 	return _turn_order
 
 
@@ -51,24 +54,36 @@ func swap_turn_order(idx_a: int, idx_b: int) -> bool:
 	return true
 
 
-## Execute one step (one entity's instruction). Returns true if more steps remain.
+## Execute one step (one entity's instruction in current round). Returns true if more steps remain.
 func execute_step() -> bool:
-	if _current_step >= _turn_order.size():
+	if _current_round >= MAX_ROUNDS:
 		round_complete.emit()
 		return false
 
-	var entity: Node3D = _turn_order[_current_step]
-	turn_started.emit(_current_step, _turn_order.size())
+	if _turn_order.is_empty():
+		round_complete.emit()
+		return false
+
+	var overall_step: int = _current_round * _turn_order.size() + _current_entity_idx
+	var total_steps: int = MAX_ROUNDS * _turn_order.size()
+	turn_started.emit(overall_step, total_steps)
+
+	var entity: Node3D = _turn_order[_current_entity_idx]
 
 	if entity is Robot:
 		_execute_robot_step(entity as Robot)
 	elif entity is Enemy:
 		_execute_enemy_step(entity as Enemy)
 
-	turn_step_complete.emit(_current_step)
-	_current_step += 1
+	turn_step_complete.emit(overall_step)
 
-	if _current_step >= _turn_order.size():
+	# Advance to next entity
+	_current_entity_idx += 1
+	if _current_entity_idx >= _turn_order.size():
+		_current_entity_idx = 0
+		_current_round += 1
+
+	if _current_round >= MAX_ROUNDS:
 		round_complete.emit()
 		return false
 	return true
@@ -329,11 +344,11 @@ func get_turn_order() -> Array:
 	return _turn_order
 
 
-## Get current step index.
+## Get current step index (overall, across all rounds).
 func get_current_step() -> int:
-	return _current_step
+	return _current_round * _turn_order.size() + _current_entity_idx
 
 
-## Get total steps in this round.
+## Get total steps in this execution (3 rounds × entities).
 func get_total_steps() -> int:
-	return _turn_order.size()
+	return MAX_ROUNDS * _turn_order.size()

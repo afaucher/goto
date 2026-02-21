@@ -201,32 +201,47 @@ func get_buffer_size() -> int:
 	return hp
 
 
-## Add an instruction to the first empty slot. Returns true if successful.
+## Add an instruction to the next empty slot (end of buffer). Returns true if successful.
 func add_instruction(instr: Instruction) -> bool:
-	for i: int in range(instruction_buffer.size()):
-		if instruction_buffer[i] == null:
-			instruction_buffer[i] = instr
-			return true
-	return false
+	if instruction_buffer.size() >= hp:
+		# Check if there's a null at the end
+		for i: int in range(instruction_buffer.size()):
+			if instruction_buffer[i] == null:
+				instruction_buffer[i] = instr
+				return true
+		return false
+	# Buffer has room to grow
+	instruction_buffer.append(instr)
+	return true
 
 
-## Remove instruction from a specific slot and return it.
+## Remove instruction from a specific slot, shift remaining left. Returns removed instruction.
 func remove_instruction(idx: int) -> Instruction:
 	if idx < 0 or idx >= instruction_buffer.size():
 		return null
 	var instr: Instruction = instruction_buffer[idx]
-	instruction_buffer[idx] = null
+	if instr == null:
+		return null
+	# Shift everything left
+	instruction_buffer.remove_at(idx)
+	# Pad with null at end to maintain buffer size = hp
+	while instruction_buffer.size() < hp:
+		instruction_buffer.append(null)
 	return instr
 
 
-## Get the next instruction to execute (first non-null).
+## Get the next instruction to execute (always index 0, then shift left).
 func pop_next_instruction() -> Instruction:
-	for i: int in range(instruction_buffer.size()):
-		if instruction_buffer[i] != null:
-			var instr: Instruction = instruction_buffer[i]
-			instruction_buffer[i] = null
-			return instr
-	return null
+	if instruction_buffer.is_empty():
+		return null
+	var instr: Instruction = instruction_buffer[0]
+	if instr == null:
+		return null
+	# Shift left
+	instruction_buffer.remove_at(0)
+	while instruction_buffer.size() < hp:
+		instruction_buffer.append(null)
+	return instr
 
 
 ## Take damage. Reduces HP, shrinks buffer, destroys instructions.

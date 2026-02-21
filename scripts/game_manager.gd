@@ -18,7 +18,7 @@ var turn_engine: TurnEngine = TurnEngine.new()
 var _countdown_timer: float = 0.0
 var _countdown_active: bool = false
 var _execution_timer: float = 0.0
-var _execution_delay: float = 0.6  # Seconds between each turn step
+var _execution_delay: float = 0.78  # Seconds between each turn step
 var _has_key: bool = false
 
 # Reference to the main scene for spawning entities
