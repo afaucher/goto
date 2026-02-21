@@ -1,0 +1,22 @@
+# Godot-specific ignores
+.godot/
+*.import
+export_presets.cfg
+
+# Mono-specific ignores
+.mono/
+data_*/
+mono_crash_*.log
+
+# System/IDE ignores
+.vscode/
+.idea/
+*.log
+*.tmp
+external/
+logs/
+bin/
+build/
+*.exe
+*.tscn.uid
+*.gd.uid
