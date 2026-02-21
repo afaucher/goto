@@ -12,6 +12,7 @@ var _turn_progress_bar: HBoxContainer
 var _instruction_pool_container: HBoxContainer
 var _robot_panels: Array[VBoxContainer] = []
 var _robot_buffer_slots: Array[Array] = []  # [robot_idx][slot_idx] = Button
+var _robot_hp_labels: Array[Label] = []  # HP heart indicators per robot
 var _countdown_label: Label
 var _state_label: Label
 var _start_button: Button
@@ -305,6 +306,7 @@ func _create_robot_panel(robot_id: int) -> PanelContainer:
 	hp_label.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
 	hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	inner_vbox.add_child(hp_label)
+	_robot_hp_labels.append(hp_label)
 
 	# Instruction buffer slots
 	var slots_container := HBoxContainer.new()
@@ -340,6 +342,7 @@ func _connect_signals() -> void:
 	_game_manager.instruction_pool_updated.connect(_on_pool_updated)
 	_game_manager.turn_order_updated.connect(_on_turn_order_updated)
 	_game_manager.turn_engine.turn_started.connect(_on_turn_step)
+	_game_manager.turn_engine.turn_step_complete.connect(_on_turn_step_complete)
 	# Initial refresh — pool was generated before signals connected
 	_refresh_all_slots()
 	_rebuild_pool_buttons()
@@ -469,18 +472,50 @@ func _on_turn_step(entity_index: int, _total: int) -> void:
 		_turn_squares[i].add_theme_stylebox_override("panel", style)
 
 
+func _on_turn_step_complete(_step_index: int) -> void:
+	# Refresh buffer slots live during execution
+	_refresh_all_slots()
+
+
 func _refresh_all_slots() -> void:
+	var is_planning: bool = _game_manager.current_state == GameManager.GameState.PLANNING
 	for robot_id: int in range(4):
 		if robot_id >= _game_manager.robots.size():
 			continue
 		var robot: Robot = _game_manager.robots[robot_id]
+		var is_dead: bool = not robot.is_alive
+
+		# Update HP hearts
+		if robot_id < _robot_hp_labels.size():
+			if is_dead:
+				_robot_hp_labels[robot_id].text = "DESTROYED"
+				_robot_hp_labels[robot_id].add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
+			else:
+				var hearts: String = ""
+				for _h: int in range(robot.hp):
+					hearts += "♥"
+				for _h: int in range(Robot.MAX_HP - robot.hp):
+					hearts += "♡"
+				_robot_hp_labels[robot_id].text = hearts
+				_robot_hp_labels[robot_id].add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
 		for slot_idx: int in range(Robot.MAX_HP):
 			if robot_id >= _robot_buffer_slots.size():
 				continue
 			if slot_idx >= _robot_buffer_slots[robot_id].size():
 				continue
 			var btn: Button = _robot_buffer_slots[robot_id][slot_idx]
-			if slot_idx >= robot.hp:
+			if is_dead:
+				# Dead robot: grey out everything
+				btn.text = "X" if slot_idx == 0 else ""
+				btn.disabled = true
+				var style := StyleBoxFlat.new()
+				style.bg_color = Color(0.15, 0.15, 0.15)
+				style.corner_radius_top_left = 4
+				style.corner_radius_top_right = 4
+				style.corner_radius_bottom_left = 4
+				style.corner_radius_bottom_right = 4
+				btn.add_theme_stylebox_override("normal", style)
+			elif slot_idx >= robot.hp:
 				# Slot destroyed by damage
 				btn.text = "X"
 				btn.disabled = true
@@ -499,7 +534,8 @@ func _refresh_all_slots() -> void:
 					display_name = display_name.substr(0, 5)
 				btn.text = display_name
 				btn.tooltip_text = instr.instruction_name + "\n" + instr.description
-				btn.disabled = false
+				# Disable click-back during execution
+				btn.disabled = not is_planning
 				var style := StyleBoxFlat.new()
 				style.bg_color = instr.icon_color * 0.5
 				style.corner_radius_top_left = 4
@@ -510,7 +546,7 @@ func _refresh_all_slots() -> void:
 			else:
 				btn.text = ""
 				btn.tooltip_text = "Empty slot — click an instruction to fill"
-				btn.disabled = false
+				btn.disabled = not is_planning
 				var style := StyleBoxFlat.new()
 				style.bg_color = SLOT_EMPTY
 				style.corner_radius_top_left = 4
