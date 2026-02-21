@@ -79,16 +79,12 @@ func _start_planning_phase() -> void:
 	current_state = GameState.PLANNING
 	state_changed.emit(current_state)
 
-	# Count empty slots across all alive robots
-	var empty_slots: int = 0
+	# Generate pool: 3 instructions per alive robot
+	var alive_count: int = 0
 	for robot: Robot in robots:
 		if robot.is_alive:
-			for instr: Variant in robot.instruction_buffer:
-				if instr == null:
-					empty_slots += 1
-
-	# Generate pool to fill empty slots plus a few extras
-	var pool_size: int = empty_slots + 3
+			alive_count += 1
+	var pool_size: int = maxi(alive_count * 3, 12)
 	instruction_pool = InstructionsDB.generate_pool(pool_size)
 	instruction_pool_updated.emit(instruction_pool)
 
