@@ -85,23 +85,42 @@ func create_instruction(p_type: Instruction.Type) -> Instruction:
 ## Generate a random pool of instructions for a round.
 ## count: total instructions to generate.
 ## rare_chance: probability (0-1) of each instruction being rare.
+## Movement instructions appear 3x more often than other common types.
 func generate_pool(count: int, rare_chance: float = 0.15) -> Array[Instruction]:
 	var pool: Array[Instruction] = []
-	var common_types: Array[Instruction.Type] = []
+
+	# Movement types get 3x weight in the common pool
+	var movement_types: Array[Instruction.Type] = [
+		Instruction.Type.MOVE_FORWARD,
+		Instruction.Type.MOVE_BACKWARD,
+		Instruction.Type.TURN_LEFT,
+		Instruction.Type.TURN_RIGHT,
+		Instruction.Type.STRAFE_LEFT,
+		Instruction.Type.STRAFE_RIGHT,
+		Instruction.Type.SPRINT,
+	]
+
+	var weighted_common: Array[Instruction.Type] = []
 	var rare_types: Array[Instruction.Type] = []
 
 	for entry: Dictionary in _catalog:
-		if entry["rarity"] == Instruction.Rarity.COMMON:
-			common_types.append(entry["type"])
-		else:
+		if entry["rarity"] == Instruction.Rarity.RARE:
 			rare_types.append(entry["type"])
+		else:
+			var type: Instruction.Type = entry["type"]
+			if type in movement_types:
+				# 3x weight for movement
+				for _w: int in range(3):
+					weighted_common.append(type)
+			else:
+				weighted_common.append(type)
 
 	for i: int in range(count):
 		var chosen_type: Instruction.Type
 		if rare_types.size() > 0 and randf() < rare_chance:
 			chosen_type = rare_types[randi() % rare_types.size()]
 		else:
-			chosen_type = common_types[randi() % common_types.size()]
+			chosen_type = weighted_common[randi() % weighted_common.size()]
 		pool.append(create_instruction(chosen_type))
 
 	return pool

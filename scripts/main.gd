@@ -6,6 +6,7 @@ var _level_renderer: Node3D
 var _camera: Camera3D
 var _hud: CanvasLayer
 var _fog: Node3D
+var _vfx: Node3D
 var _light: DirectionalLight3D
 
 var _selected_robot_id: int = 0
@@ -32,6 +33,12 @@ func _ready() -> void:
 	_fog.name = "FogOfWar"
 	_fog.set_script(load("res://scripts/fog_of_war.gd"))
 	add_child(_fog)
+
+	# Create VFX manager
+	_vfx = Node3D.new()
+	_vfx.name = "VFXManager"
+	_vfx.set_script(load("res://scripts/vfx_manager.gd"))
+	add_child(_vfx)
 
 	# Create HUD
 	_hud = CanvasLayer.new()
@@ -79,6 +86,10 @@ func _initialize_game() -> void:
 	_fog.update_visibility()
 	_fog.apply_visibility(_level_renderer, GameManager.enemies)
 
+	# Setup VFX
+	_vfx.setup(_level_renderer)
+	GameManager.turn_engine.vfx_requested.connect(_on_vfx_requested)
+
 	# Center camera on first robot
 	if not GameManager.robots.is_empty():
 		var robot: Robot = GameManager.robots[0]
@@ -105,3 +116,23 @@ func _process(delta: float) -> void:
 	# Quit
 	if Input.is_action_just_pressed("quit_game"):
 		get_tree().quit()
+
+
+func _on_vfx_requested(effect_name: String, data: Dictionary) -> void:
+	match effect_name:
+		"laser":
+			_vfx.show_laser(data["start"], data["dir"], data["end"])
+		"shotgun":
+			_vfx.show_shotgun(data["pos"], data["dir"])
+		"damage":
+			_vfx.show_damage_flash(data["pos"])
+		"shove":
+			_vfx.show_shove(data["pos"], data["dir"])
+		"explosion":
+			_vfx.show_explosion(data["pos"])
+		"emp":
+			_vfx.show_emp(data["pos"])
+		"teleport":
+			_vfx.show_teleport(data["pos"])
+		"shield":
+			_vfx.show_shield_activate(data["pos"])

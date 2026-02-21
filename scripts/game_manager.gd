@@ -228,12 +228,29 @@ func _sync_entity_positions() -> void:
 	if _level_renderer == null:
 		return
 	var renderer: Node3D = _level_renderer
+	var move_duration: float = 0.25  # Smooth slide duration
 	for robot: Robot in robots:
 		if robot.is_alive:
-			robot.position = renderer.grid_to_world(robot.grid_pos)
+			var target: Vector3 = renderer.grid_to_world(robot.grid_pos)
+			if robot.position.distance_to(target) > 0.01:
+				var tween: Tween = robot.create_tween()
+				tween.tween_property(robot, "position", target, move_duration)\
+					.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+			else:
+				robot.position = target
+		else:
+			robot.visible = false
 	for enemy: Enemy in enemies:
 		if enemy.is_alive:
-			enemy.position = renderer.grid_to_world(enemy.grid_pos)
+			var target: Vector3 = renderer.grid_to_world(enemy.grid_pos)
+			if enemy.position.distance_to(target) > 0.01:
+				var tween: Tween = enemy.create_tween()
+				tween.tween_property(enemy, "position", target, move_duration)\
+					.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+			else:
+				enemy.position = target
+		else:
+			enemy.visible = false
 
 
 ## Get countdown time remaining.

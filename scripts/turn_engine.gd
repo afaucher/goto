@@ -9,6 +9,7 @@ signal turn_step_complete(entity_index: int)
 signal round_complete()
 signal entity_fell(entity: Node3D)
 signal entity_damaged(target: Node3D, amount: int)
+signal vfx_requested(effect_name: String, data: Dictionary)
 
 var _level: LevelGenerator
 var _robots: Array[Robot] = []
@@ -145,6 +146,7 @@ func _apply_instruction(entity: Node3D, instr_type: Instruction.Type,
 		Instruction.Type.SHIELD:
 			if entity is Robot:
 				(entity as Robot).activate_shield()
+				vfx_requested.emit("shield", {"pos": grid_pos})
 		Instruction.Type.FIRE_SHOTGUN:
 			_do_fire_shotgun(entity, forward, grid_pos)
 		Instruction.Type.SELF_DESTRUCT:
@@ -231,6 +233,7 @@ func _do_shove(entity: Node3D, direction: Vector2i, distance: int) -> void:
 	var target_entity: Node3D = _get_entity_at(target_pos)
 	if target_entity == null:
 		return
+	vfx_requested.emit("shove", {"pos": entity_pos, "dir": direction})
 	# Push the target entity
 	for _i: int in range(distance):
 		var push_target: Vector2i = _get_entity_grid_pos(target_entity) + direction
@@ -252,18 +255,25 @@ func _do_shove_all(entity: Node3D) -> void:
 
 func _do_fire_laser(entity: Node3D, direction: Vector2i, start_pos: Vector2i) -> void:
 	var pos: Vector2i = start_pos + direction
+	var end_pos: Vector2i = start_pos + direction  # Track where beam ends
 	while pos.x >= 0 and pos.x < _level.width and pos.y >= 0 and pos.y < _level.height:
 		# Hit a wall?
 		if _level.wall_grid[pos.y][pos.x] == LevelGenerator.WallCell.WALL:
+			end_pos = pos
 			break
 		if _level.wall_grid[pos.y][pos.x] == LevelGenerator.WallCell.DOOR_LOCKED:
+			end_pos = pos
 			break
 		# Hit an entity?
 		var hit_entity: Node3D = _get_entity_at(pos)
 		if hit_entity != null and hit_entity != entity:
 			_damage_entity(hit_entity, 1)
+			end_pos = pos
+			vfx_requested.emit("damage", {"pos": pos})
 			break
+		end_pos = pos
 		pos += direction
+	vfx_requested.emit("laser", {"start": start_pos, "end": end_pos, "dir": direction})
 
 
 func _do_fire_shotgun(entity: Node3D, direction: Vector2i, start_pos: Vector2i) -> void:
@@ -291,6 +301,7 @@ func _do_fire_shotgun(entity: Node3D, direction: Vector2i, start_pos: Vector2i) 
 			if _level.wall_grid[pos.y][pos.x] == LevelGenerator.WallCell.WALL:
 				break
 			pos += normalized
+	vfx_requested.emit("shotgun", {"pos": start_pos, "dir": direction})
 
 
 func _do_self_destruct(entity: Node3D) -> void:
@@ -304,6 +315,7 @@ func _do_self_destruct(entity: Node3D) -> void:
 			if target != null:
 				_damage_entity(target, 3)
 	# Destroy self
+	vfx_requested.emit("explosion", {"pos": pos})
 	_damage_entity(entity, 100)
 
 
@@ -316,6 +328,7 @@ func _do_emp(entity: Node3D) -> void:
 			var target: Node3D = _get_entity_at(pos + Vector2i(dx, dy))
 			if target is Enemy:
 				(target as Enemy).is_disabled = true
+	vfx_requested.emit("emp", {"pos": pos})
 
 
 func _do_teleport(entity: Node3D) -> void:
@@ -329,6 +342,7 @@ func _do_teleport(entity: Node3D) -> void:
 	if valid_tiles.size() > 0:
 		var chosen: Vector2i = valid_tiles[randi() % valid_tiles.size()]
 		_set_entity_grid_pos(entity, chosen)
+		vfx_requested.emit("teleport", {"pos": chosen})
 
 
 func _damage_entity(entity: Node3D, amount: int) -> void:
