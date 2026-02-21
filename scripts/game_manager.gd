@@ -230,8 +230,15 @@ func return_instruction(robot_id: int, buffer_index: int) -> bool:
 
 ## Swap turn order for a robot.
 func swap_robot_turn_order(robot_idx_in_order: int, direction: int) -> void:
-	var target_idx: int = robot_idx_in_order + direction
-	if turn_engine.swap_turn_order(robot_idx_in_order, target_idx):
+	var order := turn_engine.get_turn_order()
+	if robot_idx_in_order < 0 or robot_idx_in_order >= order.size():
+		return
+		
+	var robot = order[robot_idx_in_order]
+	if not robot is Robot:
+		return
+		
+	if turn_engine.swap_robot_positions(robot, direction):
 		turn_order_updated.emit(turn_engine.get_turn_order())
 
 

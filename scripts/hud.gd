@@ -9,9 +9,9 @@ signal selected_robot_changed(robot_id: int)
 var _game_manager: Node  # GameManager autoload
 
 # UI containers
-var _turn_progress_bar: HBoxContainer
 var _instruction_pool_container: HBoxContainer
-var _robot_panels: Array[VBoxContainer] = []
+var _robot_panels_container: HBoxContainer
+var _robot_panels: Array[PanelContainer] = []
 var _robot_buffer_slots: Array[Array] = []  # [robot_idx][slot_idx] = Button
 var _robot_hp_labels: Array[Label] = []  # HP heart indicators per robot
 var _countdown_label: Label
@@ -283,15 +283,14 @@ func _build_ui() -> void:
 	_instruction_pool_container.add_theme_constant_override("separation", 4)
 	pool_scroll.add_child(_instruction_pool_container)
 
-	# Row 3: Robot panels
-	var robot_row := HBoxContainer.new()
-	robot_row.add_theme_constant_override("separation", 8)
-	robot_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	bottom_vbox.add_child(robot_row)
+	_robot_panels_container = HBoxContainer.new()
+	_robot_panels_container.add_theme_constant_override("separation", 8)
+	_robot_panels_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	bottom_vbox.add_child(_robot_panels_container)
 
 	for i: int in range(4):
 		var panel := _create_robot_panel(i)
-		robot_row.add_child(panel)
+		_robot_panels_container.add_child(panel)
 
 
 func _create_robot_panel(robot_id: int) -> PanelContainer:
@@ -377,7 +376,7 @@ func _create_robot_panel(robot_id: int) -> PanelContainer:
 		slot_buttons.append(slot_btn)
 
 	_robot_buffer_slots.append(slot_buttons)
-	_robot_panels.append(inner_vbox)
+	_robot_panels.append(panel_bg)
 	return panel_bg
 
 
@@ -530,6 +529,16 @@ func _on_turn_order_updated(order: Array) -> void:
 
 		hbox.add_child(label)
 
+	# Reorder robot panels at the bottom to match turn order
+	if _robot_panels_container:
+		var robot_count := 0
+		for i in range(order.size()):
+			if order[i] is Robot:
+				var r_idx = _game_manager.robots.find(order[i])
+				if r_idx != -1 and r_idx < _robot_panels.size():
+					_robot_panels_container.move_child(_robot_panels[r_idx], robot_count)
+					robot_count += 1
+
 
 func _on_swap_order(idx: int, direction: int) -> void:
 	_game_manager.swap_robot_turn_order(idx, direction)
@@ -663,7 +672,7 @@ func _on_robot_header_pressed(robot_id: int) -> void:
 
 func _update_selection_visuals() -> void:
 	for i: int in range(_robot_panels.size()):
-		var panel_bg: PanelContainer = _robot_panels[i].get_parent() as PanelContainer
+		var panel_bg: PanelContainer = _robot_panels[i]
 		if panel_bg == null:
 			continue
 		var bg_style := StyleBoxFlat.new()

@@ -44,6 +44,33 @@ func build_turn_order() -> Array:
 
 
 ## Swap two adjacent entries in turn order. Returns true if swapped.
+func swap_robot_positions(robot: Robot, direction: int) -> bool:
+	var current_idx := _turn_order.find(robot)
+	if current_idx == -1:
+		return false
+	
+	var target_idx := -1
+	if direction > 0:
+		# Find next robot
+		for i in range(current_idx + 1, _turn_order.size()):
+			if _turn_order[i] is Robot:
+				target_idx = i
+				break
+	else:
+		# Find previous robot
+		for i in range(current_idx - 1, -1, -1):
+			if _turn_order[i] is Robot:
+				target_idx = i
+				break
+				
+	if target_idx != -1:
+		var temp := _turn_order[current_idx]
+		_turn_order[current_idx] = _turn_order[target_idx]
+		_turn_order[target_idx] = temp
+		return true
+	return false
+
+
 func swap_turn_order(idx_a: int, idx_b: int) -> bool:
 	if idx_a < 0 or idx_b < 0:
 		return false
