@@ -8,6 +8,8 @@ var _hud: CanvasLayer
 var _fog: Node3D
 var _light: DirectionalLight3D
 
+var _selected_robot_id: int = 0
+
 
 func _ready() -> void:
 	# Create lighting
@@ -36,6 +38,9 @@ func _ready() -> void:
 	_hud.name = "HUD"
 	_hud.set_script(load("res://scripts/hud.gd"))
 	add_child(_hud)
+
+	# Connect HUD signals
+	_hud.selected_robot_changed.connect(_on_robot_selected)
 
 	# Initialize game
 	_initialize_game()
@@ -74,14 +79,29 @@ func _initialize_game() -> void:
 	_fog.update_visibility()
 	_fog.apply_visibility(_level_renderer, GameManager.enemies)
 
-	# Center camera on level
-	var center_x: float = GameManager.level.width * 0.5
-	var center_z: float = GameManager.level.height * 0.5
-	_camera.center_on(Vector3(center_x, 0, center_z))
+	# Center camera on first robot
+	if not GameManager.robots.is_empty():
+		var robot: Robot = GameManager.robots[0]
+		_camera.center_on(_level_renderer.grid_to_world(robot.grid_pos))
 
 
-func _process(_delta: float) -> void:
-	# Update fog of war each frame (or could be per-turn)
+func _on_robot_selected(robot_id: int) -> void:
+	_selected_robot_id = robot_id
+	# Snap camera to selected robot
+	if robot_id < GameManager.robots.size():
+		var robot: Robot = GameManager.robots[robot_id]
+		if robot.is_alive:
+			_camera.center_on(_level_renderer.grid_to_world(robot.grid_pos))
+
+
+func _process(delta: float) -> void:
+	# Camera follows selected robot smoothly
+	if _selected_robot_id < GameManager.robots.size():
+		var robot: Robot = GameManager.robots[_selected_robot_id]
+		if robot.is_alive:
+			_camera.follow_target(_level_renderer.grid_to_world(robot.grid_pos), delta)
+
+	# Update fog of war during execution
 	if GameManager.current_state == GameManager.GameState.EXECUTING:
 		_fog.update_visibility()
 		_fog.apply_visibility(_level_renderer, GameManager.enemies)

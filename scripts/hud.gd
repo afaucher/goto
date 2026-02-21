@@ -2,6 +2,8 @@
 ## Manages the bottom-bar with robot panels, instruction pool, and turn progress.
 extends CanvasLayer
 
+signal selected_robot_changed(robot_id: int)
+
 # References set by main scene
 var _game_manager: Node  # GameManager autoload
 
@@ -520,9 +522,8 @@ func _refresh_all_slots() -> void:
 
 func _on_robot_header_pressed(robot_id: int) -> void:
 	_selected_robot = robot_id
-	# Rebuild to update selection highlight
-	# Quick visual update: just update border colors
 	_update_selection_visuals()
+	selected_robot_changed.emit(robot_id)
 
 
 func _update_selection_visuals() -> void:
