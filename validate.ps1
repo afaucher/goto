@@ -1,17 +1,35 @@
+# Validate all GDScript files by importing the project headlessly.
+# This catches parse errors, type errors, and missing references.
 $godotExe = "$PSScriptRoot\external\Godot_v4.4.1-stable_win64.exe" 
 
-Write-Host "Using Godot: $godotExe"
+if (-not (Test-Path $godotExe)) {
+    Write-Host "ERROR: Godot not found at: $godotExe" -ForegroundColor Red
+    exit 1
+}
 
-$scripts = Get-ChildItem -Path "scripts" -Filter "*.gd" -Recurse
+Write-Host "Using Godot: $godotExe" -ForegroundColor Cyan
+Write-Host ""
 
-foreach ($script in $scripts) {
-    Write-Host "Checking $($script.Name)..." -NoNewline
-    $output = & $godotExe --headless --check-only -s $script.FullName 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host " OK" -ForegroundColor Green
+# Run headless import - this validates all scripts, scenes, and resources
+Write-Host "Running headless import validation..." -ForegroundColor Yellow
+$output = & $godotExe --headless --path . --import 2>&1
+
+# Check for errors in output
+$errors = $output | Select-String -Pattern "error|Error|ERROR|SCRIPT ERROR|failed" 
+
+if ($errors) {
+    Write-Host ""
+    Write-Host "VALIDATION FAILED" -ForegroundColor Red
+    Write-Host "==================" -ForegroundColor Red
+    foreach ($err in $errors) {
+        Write-Host $err -ForegroundColor Red
     }
-    else {
-        Write-Host " FAIL" -ForegroundColor Red
-        Write-Host $output
-    }
+    exit 1
+}
+else {
+    Write-Host "All scripts validated successfully!" -ForegroundColor Green
+    
+    # Show script count
+    $scriptCount = (Get-ChildItem -Path "scripts" -Filter "*.gd" -Recurse).Count
+    Write-Host "$scriptCount GDScript files OK" -ForegroundColor Green
 }

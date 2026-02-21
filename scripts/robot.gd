@@ -146,11 +146,10 @@ func _build_visuals() -> void:
 	arrow_mat.emission = robot_color
 	arrow_mat.emission_energy_multiplier = 1.0
 	_arrow.material_override = arrow_mat
-	# Position on top of body, rotated to point forward (cone tip = +Y, so rotate -90 on X to point +Z)
-	_arrow.position = Vector3(0, 0.45, 0)
+	# Fixed local position: forward (-Z) and on top, cone tip points -Z
+	_arrow.position = Vector3(0, 0.45, -0.25)
 	_arrow.rotation = Vector3(deg_to_rad(-90), 0, 0)
 	_body_mesh.add_child(_arrow)
-	_update_arrow_rotation()
 
 	# Floating label above robot
 	_label = Label3D.new()
@@ -183,9 +182,10 @@ func _build_visuals() -> void:
 
 
 func _update_eye_positions() -> void:
-	# Eyes always face the robot's direction
-	var forward: Vector3 = _direction_to_vector3(facing)
-	var right: Vector3 = forward.cross(Vector3.UP)
+	# Fixed local positions — body rotation.y handles facing direction.
+	# In local space, forward is -Z (NORTH default).
+	var forward := Vector3(0, 0, -1)
+	var right := Vector3(1, 0, 0)
 	_eye_left.position = forward * 0.36 + right * 0.14 + Vector3(0, 0.1, 0)
 	_eye_right.position = forward * 0.36 - right * 0.14 + Vector3(0, 0.1, 0)
 
@@ -268,35 +268,9 @@ func take_damage(amount: int) -> void:
 ## Set facing direction and update visuals.
 func set_facing(dir: Direction) -> void:
 	facing = dir
-	_update_eye_positions()
-	_update_arrow_rotation()
-	# Rotate body to match facing
+	# Rotate body to match facing — eyes and arrow are in fixed local positions
 	var angle: float = _direction_to_angle(dir)
 	_body_mesh.rotation.y = angle
-
-
-## Update arrow cone to point in facing direction.
-## Arrow is a child of body_mesh, so we position it relative to body.
-## The cone's tip points along local +Y, rotated -90 on X makes it point +Z.
-## We then rotate it around Y to match the facing direction.
-func _update_arrow_rotation() -> void:
-	if _arrow == null:
-		return
-	var forward: Vector3 = _direction_to_vector3(facing)
-	# Place arrow slightly in front of body top, pointing outward
-	_arrow.position = forward * 0.25 + Vector3(0, 0.45, 0)
-	# Cone tip (+Y) needs to point in facing direction
-	# Base rotation: -90 on X makes tip point +Z (south/default)
-	# Then rotate Y to match direction
-	match facing:
-		Direction.NORTH:
-			_arrow.rotation = Vector3(deg_to_rad(-90), 0, 0)
-		Direction.EAST:
-			_arrow.rotation = Vector3(0, 0, deg_to_rad(-90))
-		Direction.SOUTH:
-			_arrow.rotation = Vector3(deg_to_rad(90), 0, 0)
-		Direction.WEST:
-			_arrow.rotation = Vector3(0, 0, deg_to_rad(90))
 
 
 ## Activate shield visual.
