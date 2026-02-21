@@ -4,7 +4,7 @@ extends Node3D
 
 var _level_renderer: Node3D
 var _camera: Camera3D
-var _hud: CanvasLayer
+var _hud: HUD
 var _fog: Node3D
 var _vfx: Node3D
 var _light: DirectionalLight3D
@@ -41,9 +41,8 @@ func _ready() -> void:
 	add_child(_vfx)
 
 	# Create HUD
-	_hud = CanvasLayer.new()
+	_hud = HUD.new()
 	_hud.name = "HUD"
-	_hud.set_script(load("res://scripts/hud.gd"))
 	add_child(_hud)
 
 	# Connect HUD signals

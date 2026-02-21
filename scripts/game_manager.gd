@@ -168,7 +168,7 @@ func _on_round_complete() -> void:
 					# Open locked doors
 					for y: int in range(level.height):
 						for x: int in range(level.width):
-							if level.wall_grid[y][x] == LevelGenerator.WallCell.DOOR_LOCKED:
+							if level.wall_grid[y][x] == LevelGenerator.WallCell.LOCK:
 								level.wall_grid[y][x] = LevelGenerator.WallCell.EMPTY
 
 	# Check if all robots dead

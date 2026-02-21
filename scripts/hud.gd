@@ -1,5 +1,6 @@
 ## HUD controller for GOTO.
 ## Manages the bottom-bar with robot panels, instruction pool, and turn progress.
+class_name HUD
 extends CanvasLayer
 
 signal selected_robot_changed(robot_id: int)
@@ -482,7 +483,7 @@ func _on_turn_order_updated(order: Array) -> void:
 	for child in _turn_order_container.get_children():
 		child.queue_free()
 
-	var is_planning := _game_manager.current_state == GameManager.GameState.PLANNING
+	var is_planning: bool = _game_manager.current_state == GameManager.GameState.PLANNING
 
 	for i in range(order.size()):
 		var entity = order[i]

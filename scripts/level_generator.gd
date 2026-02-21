@@ -186,7 +186,7 @@ func _place_objectives() -> void:
 	var door_x: int = width / 2
 	var door_y: int = height / 2
 	var door_pos: Vector2i = _find_valid_position(door_x - 2, door_y - 2, door_x + 2, door_y + 2)
-	wall_grid[door_pos.y][door_pos.x] = WallCell.DOOR_LOCKED
+	wall_grid[door_pos.y][door_pos.x] = WallCell.LOCK
 
 
 func _place_robot_spawns() -> void:

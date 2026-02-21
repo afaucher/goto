@@ -261,7 +261,7 @@ func _do_fire_laser(entity: Node3D, direction: Vector2i, start_pos: Vector2i) ->
 		if _level.wall_grid[pos.y][pos.x] == LevelGenerator.WallCell.WALL:
 			end_pos = pos
 			break
-		if _level.wall_grid[pos.y][pos.x] == LevelGenerator.WallCell.DOOR_LOCKED:
+		if _level.wall_grid[pos.y][pos.x] == LevelGenerator.WallCell.LOCK:
 			end_pos = pos
 			break
 		# Hit an entity?

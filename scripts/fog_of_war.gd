@@ -47,7 +47,7 @@ func _cast_visibility_from(origin: Vector2i) -> void:
 			# Stop at walls
 			if _level.wall_grid[check_y][check_x] == LevelGenerator.WallCell.WALL:
 				break
-			if _level.wall_grid[check_y][check_x] == LevelGenerator.WallCell.DOOR_LOCKED:
+			if _level.wall_grid[check_y][check_x] == LevelGenerator.WallCell.LOCK:
 				break
 
 

@@ -129,7 +129,7 @@ func pop_next_instruction_type() -> Instruction.Type:
 	if intent_buffer.is_empty():
 		_update_intent_visuals()
 		return Instruction.Type.WAIT
-	var next := intent_buffer.pop_front()
+	var next := intent_buffer.pop_front() as Instruction.Type
 	_update_intent_visuals()
 	return next
 
