@@ -3,7 +3,7 @@
 extends Node3D
 
 const TILE_SIZE: float = 1.0
-const WALL_HEIGHT: float = 1.0
+const WALL_HEIGHT: float = 0.7
 
 var _floor_mesh: BoxMesh
 var _wall_mesh: BoxMesh

@@ -51,6 +51,7 @@ func initialize(main_scene: Node3D, renderer: Node3D) -> void:
 		var robot := Robot.new()
 		robot.robot_id = i
 		robot.grid_pos = level.robot_spawns[i]
+		robot.facing = randi_range(0, 3) as Robot.Direction
 		robot.name = "Robot_%d" % i
 		robots.append(robot)
 		_main_scene.add_child(robot)
