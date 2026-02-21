@@ -49,6 +49,7 @@ func _ready() -> void:
 
 	# Connect HUD signals
 	_hud.selected_robot_changed.connect(_on_robot_selected)
+	_hud.entity_focus_requested.connect(_on_entity_focus_requested)
 
 	# Initialize game
 	_initialize_game()
@@ -99,7 +100,11 @@ func _initialize_game() -> void:
 
 func _on_robot_selected(robot_id: int) -> void:
 	_selected_robot_id = robot_id
-	# Camera will smoothly pan via follow_target in _process
+
+
+func _on_entity_focus_requested(entity: Node3D) -> void:
+	if entity == null: return
+	_camera.follow_target(_level_renderer.grid_to_world(entity.grid_pos), 1.0) # Instant-ish snap
 
 
 func _process(delta: float) -> void:
