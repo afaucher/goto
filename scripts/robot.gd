@@ -1,5 +1,6 @@
 ## Robot entity for GOTO.
 ## Manages instruction buffer, health, facing, and grid position.
+## Visually distinct: colored cube body with two white eyes and floating label.
 class_name Robot
 extends Node3D
 
@@ -31,6 +32,8 @@ var _body_mesh: MeshInstance3D
 var _eye_left: MeshInstance3D
 var _eye_right: MeshInstance3D
 var _shield_mesh: MeshInstance3D
+var _label: Label3D
+var _antenna: MeshInstance3D
 
 
 func _ready() -> void:
@@ -39,24 +42,57 @@ func _ready() -> void:
 
 
 func _build_visuals() -> void:
-	# Body: cube
+	var color_idx: int = clampi(robot_id, 0, ROBOT_COLORS.size() - 1)
+	var robot_color: Color = ROBOT_COLORS[color_idx]
+
+	# Body: rounded-ish cube (slightly taller)
 	_body_mesh = MeshInstance3D.new()
 	var body_box := BoxMesh.new()
-	body_box.size = Vector3(0.7, 0.7, 0.7)
+	body_box.size = Vector3(0.7, 0.8, 0.7)
 	_body_mesh.mesh = body_box
 	var body_mat := StandardMaterial3D.new()
-	var color_idx: int = clampi(robot_id, 0, ROBOT_COLORS.size() - 1)
-	body_mat.albedo_color = ROBOT_COLORS[color_idx]
+	body_mat.albedo_color = robot_color
 	body_mat.roughness = 0.3
 	body_mat.metallic = 0.2
 	_body_mesh.material_override = body_mat
-	_body_mesh.position = Vector3(0, 0.35, 0)
+	_body_mesh.position = Vector3(0, 0.4, 0)
 	add_child(_body_mesh)
 
-	# Eyes: two small white spheres on the front face
+	# Antenna on top (distinguishes from enemies)
+	_antenna = MeshInstance3D.new()
+	var ant_mesh := CylinderMesh.new()
+	ant_mesh.top_radius = 0.03
+	ant_mesh.bottom_radius = 0.03
+	ant_mesh.height = 0.3
+	_antenna.mesh = ant_mesh
+	var ant_mat := StandardMaterial3D.new()
+	ant_mat.albedo_color = robot_color * 1.3
+	ant_mat.emission_enabled = true
+	ant_mat.emission = robot_color
+	ant_mat.emission_energy_multiplier = 0.5
+	_antenna.material_override = ant_mat
+	_antenna.position = Vector3(0, 0.55, 0)
+	_body_mesh.add_child(_antenna)
+
+	# Antenna tip (glowing ball)
+	var tip := MeshInstance3D.new()
+	var tip_sphere := SphereMesh.new()
+	tip_sphere.radius = 0.06
+	tip_sphere.height = 0.12
+	tip.mesh = tip_sphere
+	var tip_mat := StandardMaterial3D.new()
+	tip_mat.albedo_color = Color.WHITE
+	tip_mat.emission_enabled = true
+	tip_mat.emission = robot_color
+	tip_mat.emission_energy_multiplier = 1.5
+	tip.material_override = tip_mat
+	tip.position = Vector3(0, 0.15, 0)
+	_antenna.add_child(tip)
+
+	# Eyes: two white spheres on the front face
 	var eye_mesh := SphereMesh.new()
-	eye_mesh.radius = 0.08
-	eye_mesh.height = 0.16
+	eye_mesh.radius = 0.09
+	eye_mesh.height = 0.18
 	var eye_mat := StandardMaterial3D.new()
 	eye_mat.albedo_color = Color.WHITE
 	eye_mat.emission_enabled = true
@@ -73,7 +109,38 @@ func _build_visuals() -> void:
 	_eye_right.material_override = eye_mat
 	_body_mesh.add_child(_eye_right)
 
+	# Pupil dots (black centers)
+	var pupil_mesh := SphereMesh.new()
+	pupil_mesh.radius = 0.04
+	pupil_mesh.height = 0.08
+	var pupil_mat := StandardMaterial3D.new()
+	pupil_mat.albedo_color = Color(0.05, 0.05, 0.1)
+
+	var pupil_l := MeshInstance3D.new()
+	pupil_l.mesh = pupil_mesh
+	pupil_l.material_override = pupil_mat
+	pupil_l.position = Vector3(0, 0, 0.05)
+	_eye_left.add_child(pupil_l)
+
+	var pupil_r := MeshInstance3D.new()
+	pupil_r.mesh = pupil_mesh
+	pupil_r.material_override = pupil_mat
+	pupil_r.position = Vector3(0, 0, 0.05)
+	_eye_right.add_child(pupil_r)
+
 	_update_eye_positions()
+
+	# Floating label above robot
+	_label = Label3D.new()
+	_label.text = "R%d" % (robot_id + 1)
+	_label.font_size = 48
+	_label.modulate = robot_color
+	_label.outline_modulate = Color.BLACK
+	_label.outline_size = 8
+	_label.position = Vector3(0, 1.2, 0)
+	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_label.no_depth_test = true
+	add_child(_label)
 
 	# Shield visual (hidden by default)
 	_shield_mesh = MeshInstance3D.new()
@@ -88,7 +155,7 @@ func _build_visuals() -> void:
 	shield_mat.emission = Color(0.2, 0.5, 1.0)
 	shield_mat.emission_energy_multiplier = 0.3
 	_shield_mesh.material_override = shield_mat
-	_shield_mesh.position = Vector3(0, 0.35, 0)
+	_shield_mesh.position = Vector3(0, 0.4, 0)
 	_shield_mesh.visible = false
 	add_child(_shield_mesh)
 
@@ -97,8 +164,8 @@ func _update_eye_positions() -> void:
 	# Eyes always face the robot's direction
 	var forward: Vector3 = _direction_to_vector3(facing)
 	var right: Vector3 = forward.cross(Vector3.UP)
-	_eye_left.position = forward * 0.36 + right * 0.12 + Vector3(0, 0.1, 0)
-	_eye_right.position = forward * 0.36 - right * 0.12 + Vector3(0, 0.1, 0)
+	_eye_left.position = forward * 0.36 + right * 0.14 + Vector3(0, 0.1, 0)
+	_eye_right.position = forward * 0.36 - right * 0.14 + Vector3(0, 0.1, 0)
 
 
 func _init_buffer() -> void:

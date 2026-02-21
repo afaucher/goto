@@ -1,5 +1,6 @@
 ## Enemy entity for GOTO.
 ## Has a repeating instruction pattern that loops forever.
+## Visually distinct: dark red/black body, single menacing red eye, spiky silhouette, "E" label.
 class_name Enemy
 extends Node3D
 
@@ -17,6 +18,8 @@ var pattern_index: int = 0
 
 var _body_mesh: MeshInstance3D
 var _eye_mesh: MeshInstance3D
+var _label: Label3D
+var _spike_top: MeshInstance3D
 
 
 func _ready() -> void:
@@ -24,37 +27,64 @@ func _ready() -> void:
 
 
 func _build_visuals() -> void:
+	# Body: slightly smaller, darker, more menacing
 	_body_mesh = MeshInstance3D.new()
 	var body_box := BoxMesh.new()
-	body_box.size = Vector3(0.65, 0.65, 0.65)
+	body_box.size = Vector3(0.6, 0.6, 0.6)
 	_body_mesh.mesh = body_box
 	var body_mat := StandardMaterial3D.new()
-	body_mat.albedo_color = Color(0.8, 0.15, 0.15)
-	body_mat.roughness = 0.4
-	body_mat.metallic = 0.3
+	body_mat.albedo_color = Color(0.25, 0.08, 0.08)
+	body_mat.roughness = 0.3
+	body_mat.metallic = 0.5
 	_body_mesh.material_override = body_mat
-	_body_mesh.position = Vector3(0, 0.325, 0)
+	_body_mesh.position = Vector3(0, 0.3, 0)
 	add_child(_body_mesh)
 
-	# Single red eye (menacing)
+	# Spike on top (menacing, distinguishes from robots)
+	_spike_top = MeshInstance3D.new()
+	var spike_mesh := CylinderMesh.new()
+	spike_mesh.top_radius = 0.0
+	spike_mesh.bottom_radius = 0.12
+	spike_mesh.height = 0.25
+	_spike_top.mesh = spike_mesh
+	var spike_mat := StandardMaterial3D.new()
+	spike_mat.albedo_color = Color(0.6, 0.1, 0.1)
+	spike_mat.metallic = 0.6
+	_spike_top.material_override = spike_mat
+	_spike_top.position = Vector3(0, 0.42, 0)
+	_body_mesh.add_child(_spike_top)
+
+	# Single large red eye (menacing)
 	_eye_mesh = MeshInstance3D.new()
 	var eye_sphere := SphereMesh.new()
-	eye_sphere.radius = 0.1
-	eye_sphere.height = 0.2
+	eye_sphere.radius = 0.12
+	eye_sphere.height = 0.24
 	_eye_mesh.mesh = eye_sphere
 	var eye_mat := StandardMaterial3D.new()
 	eye_mat.albedo_color = Color(1.0, 0.0, 0.0)
 	eye_mat.emission_enabled = true
 	eye_mat.emission = Color(1.0, 0.0, 0.0)
-	eye_mat.emission_energy_multiplier = 1.5
+	eye_mat.emission_energy_multiplier = 2.0
 	_eye_mesh.material_override = eye_mat
 	_body_mesh.add_child(_eye_mesh)
 	_update_eye_position()
 
+	# Floating hostile label
+	_label = Label3D.new()
+	_label.text = "E"
+	_label.font_size = 40
+	_label.modulate = Color(1.0, 0.2, 0.2)
+	_label.outline_modulate = Color.BLACK
+	_label.outline_size = 8
+	_label.position = Vector3(0, 1.0, 0)
+	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_label.no_depth_test = true
+	add_child(_label)
+
 
 func _update_eye_position() -> void:
 	var forward := _direction_to_vector3(facing)
-	_eye_mesh.position = forward * 0.34 + Vector3(0, 0.05, 0)
+	_eye_mesh.position = forward * 0.32 + Vector3(0, 0.05, 0)
 
 
 ## Get the next instruction type from the repeating pattern.

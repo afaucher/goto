@@ -19,7 +19,6 @@ var _pitch: float = -0.6  # ~35 degrees down
 
 var _is_rotating: bool = false
 var _is_panning: bool = false
-var _last_mouse_pos: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -28,29 +27,35 @@ func _ready() -> void:
 	_update_transform()
 
 
-func _unhandled_input(event: InputEvent) -> void:
+## Use _input instead of _unhandled_input so UI doesn't eat mouse events
+func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_RIGHT:
 			_is_rotating = mb.pressed
-			_last_mouse_pos = mb.position
+			if mb.pressed:
+				get_viewport().set_input_as_handled()
 		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
 			_is_panning = mb.pressed
-			_last_mouse_pos = mb.position
+			if mb.pressed:
+				get_viewport().set_input_as_handled()
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_zoom_distance = maxf(min_zoom, _zoom_distance - zoom_speed)
 			size = _zoom_distance
 			_update_transform()
+			get_viewport().set_input_as_handled()
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_zoom_distance = minf(max_zoom, _zoom_distance + zoom_speed)
 			size = _zoom_distance
 			_update_transform()
+			get_viewport().set_input_as_handled()
 
 	elif event is InputEventMouseMotion:
 		var mm: InputEventMouseMotion = event as InputEventMouseMotion
 		if _is_rotating:
 			_orbit_angle += mm.relative.x * rotate_speed
 			_update_transform()
+			get_viewport().set_input_as_handled()
 		elif _is_panning:
 			# Pan along the ground plane
 			var right: Vector3 = global_transform.basis.x
@@ -58,6 +63,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_pivot += right * mm.relative.x * pan_speed * (_zoom_distance / 15.0)
 			_pivot += forward * mm.relative.y * pan_speed * (_zoom_distance / 15.0)
 			_update_transform()
+			get_viewport().set_input_as_handled()
 
 
 func _update_transform() -> void:

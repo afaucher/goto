@@ -1,5 +1,6 @@
 ## Procedural level generator for GOTO.
 ## Generates a 2-layer voxel map: floor and walls.
+## Creates a room-based layout with walls as dividers between rooms.
 class_name LevelGenerator
 extends RefCounted
 
@@ -28,8 +29,8 @@ func generate(p_width: int = 16, p_height: int = 16, p_seed: int = -1) -> void:
 
 	_init_grids()
 	_create_perimeter()
-	_generate_gaps()
-	_generate_interior_walls()
+	_generate_rooms()
+	_generate_gap_clusters()
 	_place_objectives()
 	_place_robot_spawns()
 	_place_enemies()
@@ -49,86 +50,125 @@ func _init_grids() -> void:
 
 
 func _create_perimeter() -> void:
+	# Solid wall perimeter (cleaner than random mix)
 	for x: int in range(width):
-		# Top and bottom edges: mix of walls and gaps
-		if randi() % 3 == 0:
-			floor_grid[0][x] = FloorCell.GAP
-		else:
-			wall_grid[0][x] = WallCell.WALL
-		if randi() % 3 == 0:
-			floor_grid[height - 1][x] = FloorCell.GAP
-		else:
-			wall_grid[height - 1][x] = WallCell.WALL
+		wall_grid[0][x] = WallCell.WALL
+		wall_grid[height - 1][x] = WallCell.WALL
 	for y: int in range(height):
-		if randi() % 3 == 0:
-			floor_grid[y][0] = FloorCell.GAP
-		else:
-			wall_grid[y][0] = WallCell.WALL
-		if randi() % 3 == 0:
-			floor_grid[y][width - 1] = FloorCell.GAP
-		else:
-			wall_grid[y][width - 1] = WallCell.WALL
+		wall_grid[y][0] = WallCell.WALL
+		wall_grid[y][width - 1] = WallCell.WALL
 
 
-## Generate clustered gaps using cellular automata
-func _generate_gaps() -> void:
-	# Seed random gaps in interior (skip perimeter)
-	for y: int in range(2, height - 2):
-		for x: int in range(2, width - 2):
-			if randf() < 0.12:
-				floor_grid[y][x] = FloorCell.GAP
+## Generate rooms by placing wall dividers with doorways
+func _generate_rooms() -> void:
+	# Subdivide the arena with a few horizontal and vertical wall lines
+	# Each wall line gets 1-2 doorway openings
 
-	# Smooth with cellular automata (3 passes)
-	for _pass: int in range(3):
-		var new_grid: Array = []
-		for y: int in range(height):
-			var row: Array = []
-			for x: int in range(width):
-				row.append(floor_grid[y][x])
-			new_grid.append(row)
-
-		for y: int in range(2, height - 2):
-			for x: int in range(2, width - 2):
-				var gap_neighbors: int = _count_gap_neighbors(x, y)
-				if gap_neighbors >= 4:
-					new_grid[y][x] = FloorCell.GAP
-				elif gap_neighbors <= 1:
-					new_grid[y][x] = FloorCell.SOLID
-		floor_grid = new_grid
-
-
-func _count_gap_neighbors(x: int, y: int) -> int:
-	var count: int = 0
-	for dy: int in range(-1, 2):
-		for dx: int in range(-1, 2):
-			if dx == 0 and dy == 0:
-				continue
-			var nx: int = x + dx
-			var ny: int = y + dy
-			if nx >= 0 and nx < width and ny >= 0 and ny < height:
-				if floor_grid[ny][nx] == FloorCell.GAP:
-					count += 1
-	return count
-
-
-## Generate interior walls to create rooms and corridors
-func _generate_interior_walls() -> void:
-	# Place some random wall segments
-	var wall_count: int = (width * height) / 12
-	for _i: int in range(wall_count):
-		var x: int = randi_range(2, width - 3)
-		var y: int = randi_range(2, height - 3)
-		if floor_grid[y][x] == FloorCell.SOLID and wall_grid[y][x] == WallCell.EMPTY:
+	# Horizontal dividers
+	var h_dividers: Array[int] = []
+	var num_h: int = randi_range(1, 2)
+	for _i: int in range(num_h):
+		var y: int = randi_range(4, height - 5)
+		# Avoid placing too close to another divider
+		var too_close: bool = false
+		for existing_y: int in h_dividers:
+			if absi(y - existing_y) < 4:
+				too_close = true
+				break
+		if too_close:
+			continue
+		h_dividers.append(y)
+		# Place wall line
+		for x: int in range(1, width - 1):
 			wall_grid[y][x] = WallCell.WALL
-			# Extend wall in a random direction
-			var dir: Vector2i = [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP].pick_random()
-			var length: int = randi_range(1, 3)
-			for step: int in range(length):
-				var nx: int = x + dir.x * (step + 1)
-				var ny: int = y + dir.y * (step + 1)
-				if nx > 1 and nx < width - 2 and ny > 1 and ny < height - 2:
-					if floor_grid[ny][nx] == FloorCell.SOLID:
-						wall_grid[ny][nx] = WallCell.WALL
+		# Punch 1-2 doorways
+		var num_doors: int = randi_range(1, 2)
+		for _d: int in range(num_doors):
+			var door_x: int = randi_range(2, width - 3)
+			wall_grid[y][door_x] = WallCell.EMPTY
+			# Make doorway 2 wide for easier navigation
+			if door_x + 1 < width - 1:
+				wall_grid[y][door_x + 1] = WallCell.EMPTY
+
+	# Vertical dividers
+	var v_dividers: Array[int] = []
+	var num_v: int = randi_range(1, 2)
+	for _i: int in range(num_v):
+		var x: int = randi_range(4, width - 5)
+		var too_close: bool = false
+		for existing_x: int in v_dividers:
+			if absi(x - existing_x) < 4:
+				too_close = true
+				break
+		if too_close:
+			continue
+		v_dividers.append(x)
+		for y: int in range(1, height - 1):
+			# Don't overwrite horizontal divider doorways
+			if wall_grid[y][x] == WallCell.EMPTY:
+				wall_grid[y][x] = WallCell.WALL
+		# Punch 1-2 doorways
+		var num_doors: int = randi_range(1, 2)
+		for _d: int in range(num_doors):
+			var door_y: int = randi_range(2, height - 3)
+			wall_grid[door_y][x] = WallCell.EMPTY
+			if door_y + 1 < height - 1:
+				wall_grid[door_y + 1][x] = WallCell.EMPTY
+
+	# Add a few small wall features inside rooms (pillars, cover)
+	var pillar_count: int = randi_range(2, 5)
+	for _i: int in range(pillar_count):
+		var px: int = randi_range(2, width - 3)
+		var py: int = randi_range(2, height - 3)
+		if wall_grid[py][px] == WallCell.EMPTY and floor_grid[py][px] == FloorCell.SOLID:
+			wall_grid[py][px] = WallCell.WALL
+			# Optionally extend to L-shape
+			if randf() < 0.5:
+				var ext_dir: Vector2i = [Vector2i.RIGHT, Vector2i.DOWN].pick_random()
+				var ex: int = px + ext_dir.x
+				var ey: int = py + ext_dir.y
+				if ex > 1 and ex < width - 2 and ey > 1 and ey < height - 2:
+					if wall_grid[ey][ex] == WallCell.EMPTY:
+						wall_grid[ey][ex] = WallCell.WALL
+
+
+## Generate clustered gaps in 1-2 areas of the map
+func _generate_gap_clusters() -> void:
+	var num_clusters: int = randi_range(1, 2)
+	for _c: int in range(num_clusters):
+		# Pick a random cluster center (avoid perimeter and spawn area)
+		var cx: int = randi_range(4, width - 5)
+		var cy: int = randi_range(4, height - 5)
+		var cluster_radius: int = randi_range(2, 3)
+
+		for dy: int in range(-cluster_radius, cluster_radius + 1):
+			for dx: int in range(-cluster_radius, cluster_radius + 1):
+				var gx: int = cx + dx
+				var gy: int = cy + dy
+				if gx < 1 or gx >= width - 1 or gy < 1 or gy >= height - 1:
+					continue
+				# Circular-ish shape with some randomness
+				var dist: float = sqrt(dx * dx + dy * dy)
+				if dist <= cluster_radius and randf() < 0.7:
+					# Don't gap over walls
+					if wall_grid[gy][gx] == WallCell.EMPTY:
+						floor_grid[gy][gx] = FloorCell.GAP
+
+	# Also place some gaps along the perimeter for variety
+	for x: int in range(width):
+		if randi() % 4 == 0 and wall_grid[0][x] == WallCell.WALL:
+			wall_grid[0][x] = WallCell.EMPTY
+			floor_grid[0][x] = FloorCell.GAP
+		if randi() % 4 == 0 and wall_grid[height - 1][x] == WallCell.WALL:
+			wall_grid[height - 1][x] = WallCell.EMPTY
+			floor_grid[height - 1][x] = FloorCell.GAP
+	for y: int in range(height):
+		if randi() % 4 == 0 and wall_grid[y][0] == WallCell.WALL:
+			wall_grid[y][0] = WallCell.EMPTY
+			floor_grid[y][0] = FloorCell.GAP
+		if randi() % 4 == 0 and wall_grid[y][width - 1] == WallCell.WALL:
+			wall_grid[y][width - 1] = WallCell.EMPTY
+			floor_grid[y][width - 1] = FloorCell.GAP
 
 
 func _place_objectives() -> void:

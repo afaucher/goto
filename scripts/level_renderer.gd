@@ -7,7 +7,6 @@ const WALL_HEIGHT: float = 1.0
 
 var _floor_mesh: BoxMesh
 var _wall_mesh: BoxMesh
-var _gap_mesh: BoxMesh
 
 # Materials
 var _floor_material: StandardMaterial3D
@@ -40,20 +39,20 @@ func _create_materials() -> void:
 	_wall_material.roughness = 0.6
 
 	_gap_material = StandardMaterial3D.new()
-	_gap_material.albedo_color = Color(0.05, 0.05, 0.1)
+	_gap_material.albedo_color = Color(0.08, 0.05, 0.12)
 	_gap_material.roughness = 1.0
 
 	_exit_material = StandardMaterial3D.new()
 	_exit_material.albedo_color = Color(0.1, 0.9, 0.3)
 	_exit_material.emission_enabled = true
 	_exit_material.emission = Color(0.1, 0.9, 0.3)
-	_exit_material.emission_energy_multiplier = 0.5
+	_exit_material.emission_energy_multiplier = 0.8
 
 	_key_material = StandardMaterial3D.new()
 	_key_material.albedo_color = Color(1.0, 0.85, 0.0)
 	_key_material.emission_enabled = true
 	_key_material.emission = Color(1.0, 0.85, 0.0)
-	_key_material.emission_energy_multiplier = 0.5
+	_key_material.emission_energy_multiplier = 0.8
 
 	_door_material = StandardMaterial3D.new()
 	_door_material.albedo_color = Color(0.6, 0.3, 0.1)
@@ -62,7 +61,7 @@ func _create_materials() -> void:
 
 func _create_meshes() -> void:
 	_floor_mesh = BoxMesh.new()
-	_floor_mesh.size = Vector3(TILE_SIZE * 0.95, TILE_SIZE * 0.3, TILE_SIZE * 0.95)
+	_floor_mesh.size = Vector3(TILE_SIZE * 0.95, TILE_SIZE * 0.2, TILE_SIZE * 0.95)
 
 	_wall_mesh = BoxMesh.new()
 	_wall_mesh.size = Vector3(TILE_SIZE * 0.95, WALL_HEIGHT, TILE_SIZE * 0.95)
@@ -82,7 +81,7 @@ func build_level(level: LevelGenerator) -> void:
 			if level.wall_grid[y][x] == LevelGenerator.WallCell.WALL:
 				wall_count += 1
 
-	# Build floor multimesh
+	# Build floor multimesh (includes tiles under walls)
 	_build_floor_multimesh(level, floor_count)
 	# Build wall multimesh
 	_build_wall_multimesh(level, wall_count)
@@ -110,14 +109,14 @@ func _build_floor_multimesh(level: LevelGenerator, count: int) -> void:
 	for y: int in range(level.height):
 		for x: int in range(level.width):
 			if level.floor_grid[y][x] == LevelGenerator.FloorCell.SOLID:
-				if level.wall_grid[y][x] != LevelGenerator.WallCell.WALL:
-					var pos := Vector3(x * TILE_SIZE, 0.0, y * TILE_SIZE)
-					var t := Transform3D()
-					t.origin = pos
-					mm.set_instance_transform(idx, t)
-					idx += 1
+				# Floor sits at Y=0 (centered at -0.1 so top is at 0.0)
+				var pos := Vector3(x * TILE_SIZE, -0.1, y * TILE_SIZE)
+				var t := Transform3D()
+				t.origin = pos
+				mm.set_instance_transform(idx, t)
+				idx += 1
 
-	mm.instance_count = idx  # Trim if some floors were under walls
+	mm.instance_count = idx
 	_floor_multimesh_instance = MultiMeshInstance3D.new()
 	_floor_multimesh_instance.multimesh = mm
 	_floor_multimesh_instance.material_override = _floor_material
@@ -136,6 +135,7 @@ func _build_wall_multimesh(level: LevelGenerator, count: int) -> void:
 	for y: int in range(level.height):
 		for x: int in range(level.width):
 			if level.wall_grid[y][x] == LevelGenerator.WallCell.WALL:
+				# Wall sits on top of floor: base at Y=0, center at WALL_HEIGHT/2
 				var pos := Vector3(x * TILE_SIZE, WALL_HEIGHT * 0.5, y * TILE_SIZE)
 				var t := Transform3D()
 				t.origin = pos
@@ -149,15 +149,14 @@ func _build_wall_multimesh(level: LevelGenerator, count: int) -> void:
 
 
 func _build_special_tiles(level: LevelGenerator) -> void:
-	# Exit
-	var exit_pos := level.exit_position
-	_add_special_tile(exit_pos, _exit_material, 0.4)
+	# Exit - glowing green pad on the floor
+	_add_special_tile(level.exit_position, _exit_material, 0.25)
 
-	# Keys
+	# Keys - glowing gold marker
 	for key_pos: Vector2i in level.key_positions:
-		_add_special_tile(key_pos, _key_material, 0.3)
+		_add_special_tile(key_pos, _key_material, 0.35)
 
-	# Doors
+	# Doors - tall brown blocks
 	for y: int in range(level.height):
 		for x: int in range(level.width):
 			if level.wall_grid[y][x] == LevelGenerator.WallCell.DOOR_LOCKED:
@@ -170,25 +169,27 @@ func _add_special_tile(grid_pos: Vector2i, mat: StandardMaterial3D, height: floa
 	box.size = Vector3(TILE_SIZE * 0.9, height, TILE_SIZE * 0.9)
 	mesh_inst.mesh = box
 	mesh_inst.material_override = mat
+	# Position: sits on top of floor (base at Y=0)
 	mesh_inst.position = Vector3(grid_pos.x * TILE_SIZE, height * 0.5, grid_pos.y * TILE_SIZE)
 	add_child(mesh_inst)
 	_special_tiles.append(mesh_inst)
 
 
 func _build_gap_tiles(level: LevelGenerator) -> void:
-	# Render thin dark planes where gaps are for visual clarity
+	# Render thin dark planes at floor level where gaps are
 	for y: int in range(level.height):
 		for x: int in range(level.width):
 			if level.floor_grid[y][x] == LevelGenerator.FloorCell.GAP:
 				var mesh_inst := MeshInstance3D.new()
 				var box := BoxMesh.new()
-				box.size = Vector3(TILE_SIZE * 0.95, 0.02, TILE_SIZE * 0.95)
+				box.size = Vector3(TILE_SIZE * 0.95, 0.05, TILE_SIZE * 0.95)
 				mesh_inst.mesh = box
 				mesh_inst.material_override = _gap_material
-				mesh_inst.position = Vector3(x * TILE_SIZE, -0.5, y * TILE_SIZE)
+				# Gaps at same level as floor surface (Y = -0.1)
+				mesh_inst.position = Vector3(x * TILE_SIZE, -0.1, y * TILE_SIZE)
 				add_child(mesh_inst)
 
 
-## Convert grid position to world position.
+## Convert grid position to world position (entity standing height).
 func grid_to_world(grid_pos: Vector2i) -> Vector3:
-	return Vector3(grid_pos.x * TILE_SIZE, 0.3, grid_pos.y * TILE_SIZE)
+	return Vector3(grid_pos.x * TILE_SIZE, 0.0, grid_pos.y * TILE_SIZE)
