@@ -104,7 +104,7 @@ func _execute_robot_step(robot: Robot) -> void:
 func _execute_enemy_step(enemy: Enemy) -> void:
 	if not enemy.is_alive:
 		return
-	var instr_type: Instruction.Type = enemy.get_next_instruction_type()
+	var instr_type: Instruction.Type = enemy.pop_next_instruction_type()
 	instruction_executing.emit(enemy, instr_type)
 	_apply_instruction(enemy, instr_type, enemy.facing, enemy.grid_pos)
 

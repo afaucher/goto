@@ -6,7 +6,7 @@ extends RefCounted
 
 ## Cell types for each layer
 enum FloorCell { SOLID, GAP }
-enum WallCell { EMPTY, WALL, DOOR_LOCKED, DOOR_OPEN, EXIT, KEY_SPAWN }
+enum WallCell { EMPTY, WALL, LOCK, EXIT, KEY_SPAWN }
 
 ## Generated level data
 var width: int = 16
@@ -241,7 +241,7 @@ func _find_valid_position(min_x: int, min_y: int, max_x: int, max_y: int) -> Vec
 func is_walkable(pos: Vector2i) -> bool:
 	if pos.x < 0 or pos.x >= width or pos.y < 0 or pos.y >= height:
 		return false
-	return floor_grid[pos.y][pos.x] == FloorCell.SOLID and wall_grid[pos.y][pos.x] == WallCell.EMPTY
+	return floor_grid[pos.y][pos.x] == FloorCell.SOLID and (wall_grid[pos.y][pos.x] == WallCell.EMPTY or wall_grid[pos.y][pos.x] == WallCell.KEY_SPAWN or wall_grid[pos.y][pos.x] == WallCell.EXIT)
 
 
 ## Check if a grid position is a gap (fatal fall)
@@ -365,7 +365,7 @@ func _carve_corridor(from: Vector2i, to: Vector2i) -> void:
 			continue
 
 		# Clear wall if blocking
-		if wall_grid[current.y][current.x] == WallCell.WALL:
+		if wall_grid[current.y][current.x] == WallCell.WALL or wall_grid[current.y][current.x] == WallCell.LOCK:
 			wall_grid[current.y][current.x] = WallCell.EMPTY
 		# Ensure solid floor
 		if floor_grid[current.y][current.x] == FloorCell.GAP:

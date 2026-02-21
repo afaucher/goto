@@ -15,12 +15,13 @@ var _robot_buffer_slots: Array[Array] = []  # [robot_idx][slot_idx] = Button
 var _robot_hp_labels: Array[Label] = []  # HP heart indicators per robot
 var _countdown_label: Label
 var _state_label: Label
+var _turn_order_container: VBoxContainer  # New container for reordering
 var _start_button: Button
 var _message_label: Label
 
 # Mission objectives
 var _obj_key_label: Label
-var _obj_door_label: Label
+var _obj_lock_label: Label
 var _obj_exit_label: Label
 
 # Instruction pool buttons
@@ -110,6 +111,48 @@ func _build_ui() -> void:
 	obj_panel.offset_bottom = 140
 	root.add_child(obj_panel)
 
+	# === TOP LEFT: Turn Order ===
+	var order_panel := PanelContainer.new()
+	var order_style := StyleBoxFlat.new()
+	order_style.bg_color = Color(0.08, 0.08, 0.12, 0.85)
+	order_style.border_color = Color(0.3, 0.3, 0.4)
+	order_style.border_width_top = 1
+	order_style.border_width_bottom = 1
+	order_style.border_width_left = 1
+	order_style.border_width_right = 1
+	order_style.corner_radius_top_left = 6
+	order_style.corner_radius_top_right = 6
+	order_style.corner_radius_bottom_left = 6
+	order_style.corner_radius_bottom_right = 6
+	order_style.content_margin_left = 8
+	order_style.content_margin_right = 8
+	order_style.content_margin_top = 8
+	order_style.content_margin_bottom = 8
+	order_panel.add_theme_stylebox_override("panel", order_style)
+	order_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	order_panel.offset_left = 12
+	order_panel.offset_right = 240
+	order_panel.offset_top = 12
+	root.add_child(order_panel)
+
+	var order_vbox := VBoxContainer.new()
+	order_vbox.add_theme_constant_override("separation", 6)
+	order_panel.add_child(order_vbox)
+
+	var order_title := Label.new()
+	order_title.text = "EXECUTION ORDER"
+	order_title.add_theme_font_size_override("font_size", 12)
+	order_title.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
+	order_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	order_vbox.add_child(order_title)
+
+	var order_sep := HSeparator.new()
+	order_vbox.add_child(order_sep)
+
+	_turn_order_container = VBoxContainer.new()
+	_turn_order_container.add_theme_constant_override("separation", 2)
+	order_vbox.add_child(_turn_order_container)
+
 	var obj_vbox := VBoxContainer.new()
 	obj_vbox.add_theme_constant_override("separation", 4)
 	obj_panel.add_child(obj_vbox)
@@ -130,11 +173,11 @@ func _build_ui() -> void:
 	_obj_key_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0))
 	obj_vbox.add_child(_obj_key_label)
 
-	_obj_door_label = Label.new()
-	_obj_door_label.text = "○  Unlock the door"
-	_obj_door_label.add_theme_font_size_override("font_size", 13)
-	_obj_door_label.add_theme_color_override("font_color", Color(0.6, 0.3, 0.1))
-	obj_vbox.add_child(_obj_door_label)
+	_obj_lock_label = Label.new()
+	_obj_lock_label.text = "○  Unlock the gate"
+	_obj_lock_label.add_theme_font_size_override("font_size", 13)
+	_obj_lock_label.add_theme_color_override("font_color", Color(0.6, 0.3, 0.1))
+	obj_vbox.add_child(_obj_lock_label)
 
 	_obj_exit_label = Label.new()
 	_obj_exit_label.text = "○  Reach the exit"
@@ -346,6 +389,7 @@ func _connect_signals() -> void:
 	# Initial refresh — pool was generated before signals connected
 	_refresh_all_slots()
 	_rebuild_pool_buttons()
+	_on_turn_order_updated(_game_manager.turn_engine.get_turn_order())
 
 
 func _on_state_changed(new_state: GameManager.GameState) -> void:
@@ -379,6 +423,7 @@ func _on_state_changed(new_state: GameManager.GameState) -> void:
 			_start_button.visible = false
 
 	_refresh_all_slots()
+	_on_turn_order_updated(_game_manager.turn_engine.get_turn_order())
 
 
 func _on_pool_updated(_pool: Array) -> void:
@@ -432,8 +477,61 @@ func _rebuild_pool_buttons() -> void:
 		_pool_buttons.append(btn)
 
 
-func _on_turn_order_updated(_order: Array) -> void:
-	pass
+func _on_turn_order_updated(order: Array) -> void:
+	# Rebuild the turn order list UI
+	for child in _turn_order_container.get_children():
+		child.queue_free()
+
+	var is_planning := _game_manager.current_state == GameManager.GameState.PLANNING
+
+	for i in range(order.size()):
+		var entity = order[i]
+		var hbox := HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 8)
+		_turn_order_container.add_child(hbox)
+
+		var label := Label.new()
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.add_theme_font_size_override("font_size", 12)
+
+		if entity is Robot:
+			var r_idx = _game_manager.robots.find(entity)
+			label.text = "%d. ROBOT %d" % [i + 1, r_idx + 1]
+			label.add_theme_color_override("font_color", Robot.ROBOT_COLORS[r_idx])
+
+			# Reorder buttons (only in planning phase)
+			if is_planning:
+				var btn_up := Button.new()
+				btn_up.text = "↑"
+				btn_up.custom_minimum_size = Vector2(24, 20)
+				btn_up.disabled = (i == 0)
+				btn_up.pressed.connect(_on_swap_order.bind(i, -1))
+				hbox.add_child(btn_up)
+
+				var btn_down := Button.new()
+				btn_down.text = "↓"
+				btn_down.custom_minimum_size = Vector2(24, 20)
+				btn_down.disabled = (i == order.size() - 1)
+				btn_down.pressed.connect(_on_swap_order.bind(i, 1))
+				hbox.add_child(btn_down)
+		else:
+			var intent_str := ""
+			if entity is Enemy:
+				var enemy := entity as Enemy
+				for j in range(enemy.intent_buffer.size()):
+					var type := enemy.intent_buffer[j]
+					intent_str += Instruction.Type.keys()[type].substr(0, 4)
+					if j < enemy.intent_buffer.size() - 1:
+						intent_str += " -> "
+			
+			label.text = "%d. ENEMY (%s)" % [i + 1, intent_str if intent_str != "" else "???"]
+			label.add_theme_color_override("font_color", Color(0.8, 0.2, 0.2))
+
+		hbox.add_child(label)
+
+
+func _on_swap_order(idx: int, direction: int) -> void:
+	_game_manager.swap_robot_turn_order(idx, direction)
 
 
 func _build_turn_progress(total_steps: int) -> void:
@@ -647,11 +745,11 @@ func _update_objectives() -> void:
 
 	# Door objective
 	if has_key:
-		_obj_door_label.text = "✓  Door unlocked"
-		_obj_door_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		_obj_lock_label.text = "✓  Gate Unlocked"
+		_obj_lock_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.4))
 	else:
-		_obj_door_label.text = "○  Unlock the door"
-		_obj_door_label.add_theme_color_override("font_color", Color(0.6, 0.3, 0.1))
+		_obj_lock_label.text = "○  Unlock the gate"
+		_obj_lock_label.add_theme_color_override("font_color", Color(0.6, 0.3, 0.1))
 
 	# Exit objective
 	if _game_manager.current_state == GameManager.GameState.VICTORY:

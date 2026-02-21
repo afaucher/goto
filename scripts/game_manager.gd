@@ -57,11 +57,11 @@ func initialize(main_scene: Node3D, renderer: Node3D) -> void:
 		_main_scene.add_child(robot)
 		robot.destroyed.connect(_on_robot_destroyed)
 
-	# Spawn enemies
 	for spawn_data: Dictionary in level.enemy_spawns:
 		var enemy := Enemy.new()
 		enemy.grid_pos = spawn_data["pos"]
-		enemy.pattern = spawn_data["instructions"]
+		enemy.facing = randi_range(0, 3) as Robot.Direction
+		# (Old pattern-based spawning removed)
 		enemy.name = "Enemy_%d" % enemies.size()
 		enemies.append(enemy)
 		_main_scene.add_child(enemy)
@@ -95,6 +95,11 @@ func _start_planning_phase() -> void:
 
 	# Update entity world positions
 	_sync_entity_positions()
+	
+	# Plan enemy intents for this round
+	for enemy: Enemy in enemies:
+		if enemy.is_alive:
+			enemy.plan_intent(robots, level)
 
 
 func start_countdown() -> void:

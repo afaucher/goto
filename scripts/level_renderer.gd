@@ -14,7 +14,7 @@ var _wall_material: StandardMaterial3D
 var _gap_material: StandardMaterial3D
 var _exit_material: StandardMaterial3D
 var _key_material: StandardMaterial3D
-var _door_material: StandardMaterial3D
+var _lock_material: StandardMaterial3D
 
 # Multimesh instances for performance
 var _floor_multimesh_instance: MultiMeshInstance3D
@@ -54,9 +54,10 @@ func _create_materials() -> void:
 	_key_material.emission = Color(1.0, 0.85, 0.0)
 	_key_material.emission_energy_multiplier = 0.8
 
-	_door_material = StandardMaterial3D.new()
-	_door_material.albedo_color = Color(0.6, 0.3, 0.1)
-	_door_material.roughness = 0.4
+	_lock_material = StandardMaterial3D.new()
+	_lock_material.albedo_color = Color(0.3, 0.2, 0.1)  # Dark brown
+	_lock_material.metallic = 0.5
+	_lock_material.roughness = 0.74
 
 
 func _create_meshes() -> void:
@@ -156,11 +157,11 @@ func _build_special_tiles(level: LevelGenerator) -> void:
 	for key_pos: Vector2i in level.key_positions:
 		_add_special_tile(key_pos, _key_material, 0.35)
 
-	# Doors - tall brown blocks
+	# Locks - tall brown blocks
 	for y: int in range(level.height):
 		for x: int in range(level.width):
-			if level.wall_grid[y][x] == LevelGenerator.WallCell.DOOR_LOCKED:
-				_add_special_tile(Vector2i(x, y), _door_material, WALL_HEIGHT * 0.8)
+			if level.wall_grid[y][x] == LevelGenerator.WallCell.LOCK:
+				_add_special_tile(Vector2i(x, y), _lock_material, WALL_HEIGHT * 0.8)
 
 
 func _add_special_tile(grid_pos: Vector2i, mat: StandardMaterial3D, height: float) -> void:
