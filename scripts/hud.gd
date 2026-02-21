@@ -10,6 +10,7 @@ signal entity_focus_requested(entity: Node3D)
 var _game_manager: Node  # GameManager autoload
 
 # UI containers
+var _turn_progress_bar: HBoxContainer
 var _instruction_pool_container: HBoxContainer
 var _robot_panels_container: HBoxContainer
 var _robot_panels: Array[PanelContainer] = []
@@ -115,9 +116,6 @@ func _build_ui() -> void:
 
 	# (Order panel removed from top-left)
 
-	var order_vbox := VBoxContainer.new()
-	order_vbox.add_theme_constant_override("separation", 6)
-	order_panel.add_child(order_vbox)
 	var obj_vbox := VBoxContainer.new()
 	obj_vbox.add_theme_constant_override("separation", 4)
 	obj_panel.add_child(obj_vbox)
@@ -247,10 +245,18 @@ func _build_ui() -> void:
 	_instruction_pool_container.add_theme_constant_override("separation", 4)
 	pool_scroll.add_child(_instruction_pool_container)
 
+	# Row 3: Execution panels (Entities)
+	var execution_scroll := ScrollContainer.new()
+	execution_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	execution_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	execution_scroll.custom_minimum_size = Vector2(0, 160)
+	bottom_vbox.add_child(execution_scroll)
+
 	_execution_panels_container = HBoxContainer.new()
 	_execution_panels_container.add_theme_constant_override("separation", 8)
 	_execution_panels_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	bottom_vbox.add_child(_execution_panels_container)
+	_execution_panels_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	execution_scroll.add_child(_execution_panels_container)
 
 	# Bottom panels are built dynamically in _on_turn_order_updated
 
@@ -289,10 +295,11 @@ func _create_robot_panel(robot_id: int) -> PanelContainer:
 	# Robot header (clickable to select)
 	var header_btn := Button.new()
 	header_btn.text = "ROBOT %d" % (robot_id + 1)
-	header_btn.add_theme_font_size_override("font_size", 13)
+	header_btn.add_theme_font_size_override("font_size", 14)
 	header_btn.add_theme_color_override("font_color", Robot.ROBOT_COLORS[robot_id])
+	header_btn.custom_minimum_size = Vector2(80, 24)
 	header_btn.flat = true
-	header_btn.pressed.connect(_on_robot_header_pressed.bind(robot_id))
+	header_btn.pressed.connect(_on_entity_header_pressed.bind(_game_manager.robots[robot_id]))
 	inner_vbox.add_child(header_btn)
 
 	# HP indicator
@@ -366,14 +373,17 @@ func _create_enemy_panel(enemy: Enemy, order_index: int) -> PanelContainer:
 	panel_bg.add_theme_stylebox_override("panel", bg_style)
 
 	var inner_vbox := VBoxContainer.new()
+	inner_vbox.name = "VBoxContainer"
 	inner_vbox.add_theme_constant_override("separation", 4)
 	panel_bg.add_child(inner_vbox)
 
 	# Enemy header (static but can focus camera)
 	var header_btn := Button.new()
+	header_btn.name = "Button"
 	header_btn.text = "ENEMY %d" % (order_index + 1)
-	header_btn.add_theme_font_size_override("font_size", 11)
+	header_btn.add_theme_font_size_override("font_size", 12)
 	header_btn.add_theme_color_override("font_color", Color(0.9, 0.4, 0.4))
+	header_btn.custom_minimum_size = Vector2(80, 24)
 	header_btn.flat = true
 	header_btn.pressed.connect(_on_entity_header_pressed.bind(enemy))
 	inner_vbox.add_child(header_btn)
@@ -543,10 +553,13 @@ func _on_turn_order_updated(order: Array) -> void:
 			# Add reorder buttons directly to robot panel header or overlay
 			# We'll put them in a HBox at the top of the panel
 			var header_hbox := HBoxContainer.new()
+			header_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			header_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 			# Move header_btn to this hbox
 			var header_btn = panel.get_child(0).get_child(0) # Panel -> VBox -> HeaderBtn
 			panel.get_child(0).remove_child(header_btn)
-			panel.get_child(0).add_child_at(header_hbox, 0)
+			panel.get_child(0).add_child(header_hbox)
+			panel.get_child(0).move_child(header_hbox, 0)
 			
 			if is_planning:
 				var btn_left := Button.new()
@@ -566,10 +579,22 @@ func _on_turn_order_updated(order: Array) -> void:
 				btn_right.disabled = (i == order.size() - 1)
 				btn_right.pressed.connect(_on_swap_order.bind(i, 1))
 				header_hbox.add_child(btn_right)
+			
+			# Ensure text and flags are solid
+			header_btn.text = "ROBOT %d" % (r_idx + 1)
+			header_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			header_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		
 		elif entity is Enemy:
 			var panel := _create_enemy_panel(entity, i)
 			_execution_panels_container.add_child(panel)
+			# Re-ensure name after potential move/add
+			var header_btn = panel.get_node_or_null("VBoxContainer/Button")
+			if header_btn == null:
+				header_btn = panel.get_child(0).get_child(0) as Button
+			if header_btn:
+				header_btn.text = "ENEMY %d" % (i + 1)
+				header_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	_update_selection_visuals()
 	_refresh_all_slots()
@@ -640,7 +665,7 @@ func _refresh_all_slots() -> void:
 		var is_dead: bool = not robot.is_alive
 
 		# Update HP hearts
-		if robot_id < _robot_hp_labels.size():
+		if robot_id < _robot_hp_labels.size() and _robot_hp_labels[robot_id] != null:
 			if is_dead:
 				_robot_hp_labels[robot_id].text = "DESTROYED"
 				_robot_hp_labels[robot_id].add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
@@ -653,11 +678,12 @@ func _refresh_all_slots() -> void:
 				_robot_hp_labels[robot_id].text = hearts
 				_robot_hp_labels[robot_id].add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
 		for slot_idx: int in range(Robot.MAX_HP):
-			if robot_id >= _robot_buffer_slots.size():
+			if robot_id >= _robot_buffer_slots.size() or _robot_buffer_slots[robot_id] == null:
 				continue
 			if slot_idx >= _robot_buffer_slots[robot_id].size():
 				continue
 			var btn: Button = _robot_buffer_slots[robot_id][slot_idx]
+			if btn == null: continue
 			if is_dead:
 				# Dead robot: grey out everything
 				btn.text = "X" if slot_idx == 0 else ""

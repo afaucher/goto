@@ -64,7 +64,7 @@ func swap_robot_positions(robot: Robot, direction: int) -> bool:
 				break
 				
 	if target_idx != -1:
-		var temp := _turn_order[current_idx]
+		var temp: Node3D = _turn_order[current_idx]
 		_turn_order[current_idx] = _turn_order[target_idx]
 		_turn_order[target_idx] = temp
 		return true
